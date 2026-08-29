@@ -1,27 +1,60 @@
 import re
+from decimal import Decimal, InvalidOperation
 
-
-def is_valid_bitcoin_address(address: str) -> bool:
+def validate_address(address):
     if not isinstance(address, str):
-        return False
-    
-    legacy_regex = r"^(1|3)[a-km-zA-HJ-NP-Z1-9]{25,34}$"
-    bech32_regex = r"^(bc1)[0-aa-hj-np-z0-9]{39,59}$"
-    
-    return bool(re.match(legacy_regex, address) or re.match(bech32_regex, address))
+        raise TypeError("Address must be string")
+    if not address or not address.strip():
+        raise ValueError("Address cannot be empty")
+    stripped = address.strip()
+    if len(stripped) < 26 or len(stripped) > 100:
+        raise ValueError("Invalid address length")
+    if not re.match(r"^[a-zA-Z0-9]+$", stripped):
+        raise ValueError("Address has invalid characters")
+    return stripped
 
-
-def is_valid_ethereum_address(address: str) -> bool:
-    if not isinstance(address, str):
-        return False
-    
-    eth_regex = r"^0x[a-fA-F0-9]{40}$"
-    return bool(re.match(eth_regex, address))
-
-
-def is_valid_amount(amount: str | float | int) -> bool:
+def validate_amount(amount):
+    if amount is None:
+        raise ValueError("Amount cannot be None")
     try:
-        parsed = float(amount)
-        return parsed > 0.0
-    except (ValueError, TypeError):
-        return False
+        dec = Decimal(str(amount))
+    except (InvalidOperation, TypeError, ValueError):
+        raise ValueError("Amount must be numeric")
+    if dec <= 0:
+        raise ValueError("Amount must be greater than zero")
+    if dec > Decimal("10000000000"):
+        raise ValueError("Amount exceeds maximum allowed")
+    return dec
+
+def validate_private_key(key):
+    if not isinstance(key, str):
+        raise TypeError("Private key must be string")
+    if not key:
+        raise ValueError("Private key cannot be empty")
+    if len(key) != 64:
+        raise ValueError("Private key must be 64 characters")
+    if not re.match(r"^[0-9a-fA-F]+$", key):
+        raise ValueError("Private key must be hexadecimal")
+    return key
+
+def validate_wallet(wallet_data):
+    if not isinstance(wallet_data, dict):
+        raise TypeError("Wallet data must be dict")
+    if "address" not in wallet_data:
+        raise KeyError("Missing address")
+    if "balance" not in wallet_data:
+        raise KeyError("Missing balance")
+    address = validate_address(wallet_data["address"])
+    balance = validate_amount(wallet_data["balance"])
+    return {"address": address, "balance": balance}
+
+def validate_transaction(tx):
+    if not isinstance(tx, dict):
+        raise TypeError("Transaction must be dict")
+    for key in ["sender", "recipient", "amount"]:
+        if key not in tx:
+            raise KeyError(f"Missing {key}")
+    validate_address(tx["sender"])
+    validate_address(tx["recipient"])
+    validate_amount(tx["amount"])
+    return tx
