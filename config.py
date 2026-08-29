@@ -1,40 +1,70 @@
+from typing import Dict, List, Optional
 import os
-from typing import Any, Dict
 
-DEFAULT_CONFIG: Dict[str, Any] = {
-    "NETWORK": "mainnet",
-    "RPC_URL": "https://mainnet.infura.io/v3/",
-    "GAS_LIMIT": 21000,
-    "TIMEOUT_SECONDS": 30,
-    "DEBUG_MODE": False,
-}
+class WalletConfig:
+    """Configuration manager for crypto wallet utilities."""
 
+    def __init__(self, network: str = "mainnet", api_key: Optional[str] = None) -> None:
+        """Initialize the wallet configuration.
+        Args:
+            network: Blockchain network identifier.
+            api_key: Authentication key for API access.
+        """
+        self.network: str = network
+        self.api_key: Optional[str] = api_key or os.getenv("WALLET_API_KEY")
+        self.endpoints: Dict[str, str] = {}
+        self._initialize_endpoints()
 
-class ConfigLoader:
-    def __init__(self, env_prefix: str = "WALLET_") -> None:
-        self.env_prefix = env_prefix
+    def _initialize_endpoints(self) -> None:
+        """Populate endpoint mappings based on current network."""
 
-    def load(self, overrides: Dict[str, Any] = None) -> Dict[str, Any]:
-        config = DEFAULT_CONFIG.copy()
-        
-        for key in config:
-            env_key = f"{self.env_prefix}{key}"
-            if env_key in os.environ:
-                val = os.environ[env_key]
-                config[key] = self._cast_value(val)
+        if self.network == "mainnet":
+            self.endpoints = {
+                "btc": "https://blockstream.info/api",
+                "eth": "https://api.etherscan.io/api",
+                "sol": "https://api.mainnet-beta.solana.com"
+            }
+        elif self.network == "testnet":
+            self.endpoints = {
+                "btc": "https://blockstream.info/testnet/api",
+                "eth": "https://api-sepolia.etherscan.io/api",
+                "sol": "https://api.testnet.solana.com"
+            }
+        else:
+            self.endpoints = {}
 
-        if overrides:
-            config.update(overrides)
+    def get_endpoint(self, coin: str) -> Optional[str]:
+        """Get the API endpoint for the specified coin.
+        Args:
+            coin: Cryptocurrency ticker symbol.
+        Returns:
+            Endpoint URL string or None.
+        """
+        return self.endpoints.get(coin.lower())
 
-        return config
+    def get_supported_coins(self) -> List[str]:
+        """List all supported cryptocurrencies.
+        Returns:
+            List of coin symbols.
+        """
+        return list(self.endpoints.keys())
 
-    @staticmethod
-    def _cast_value(value: str) -> Any:
-        if value.lower() in ("true", "false"):
-            return value.lower() == "true"
-        try:
-            if "." in value:
-                return float(value)
-            return int(value)
-        except ValueError:
-            return value
+    def is_api_key_valid(self) -> bool:
+        """Verify if a valid API key is configured.
+        Returns:
+            Boolean indicating key validity.
+        """
+        if self.api_key is None:
+            return False
+        return len(self.api_key) >= 16
+
+def load_wallet_config(network: Optional[str] = None) -> WalletConfig:
+    """Load and return a wallet configuration instance.
+    Args:
+        network: Optional network override.
+    Returns:
+        Configured WalletConfig object.
+    """
+    net = network or os.getenv("WALLET_NETWORK", "mainnet")
+    key = os.getenv("WALLET_API_KEY")
+    return WalletConfig(network=net, api_key=key)
