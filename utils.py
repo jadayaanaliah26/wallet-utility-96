@@ -1,27 +1,30 @@
-from decimal import Decimal
-from typing import Any, Dict, Union
+import time
+from functools import wraps
+from typing import Any, Callable, Tuple, Type
 
-
-def to_satoshi(amount: Union[str, Decimal]) -> int:
-    """Convert a given amount to satoshis."""
-    return int(Decimal(amount) * 1_000_000)
-
-
-def from_satoshi(satoshis: int) -> Decimal:
-    """Convert satoshis back to the original amount."""
-    return Decimal(satoshis) / Decimal(1_000_000)
-
-
-def calculate_fee(transaction_amount: Decimal, fee_rate: Decimal) -> Decimal:
-    """Calculate the transaction fee based on the amount and fee rate."""
-    return transaction_amount * fee_rate
-
-
-def validate_address(address: str) -> bool:
-    """Validate a cryptocurrency address format."""
-    return len(address) in {34, 42}  # Example for Bitcoin
-
-
-def get_balance(data: Dict[str, Any]) -> Decimal:
-    """Extract and return balance from data dictionary."""
-    return Decimal(data.get('balance', '0'))
+def retry_network_operation(
+    max_attempts: int = 5,
+    initial_delay: float = 0.5,
+    backoff_factor: float = 1.5,
+    exceptions: Tuple[Type[Exception], ...] = (Exception,)
+) -> Callable:
+    def decorator(func: Callable[[Any], Any]) -> Callable[[Any], Any]:
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            current_attempt: int = 0
+            delay: float = initial_delay
+            while current_attempt < max_attempts:
+                try:
+                    result: Any = func(*args, **kwargs)
+                    return result
+                except exceptions as e:
+                    current_attempt += 1
+                    if current_attempt >= max_attempts:
+                        raise
+                    time.sleep(delay)
+                    delay = delay * backoff_factor
+                    if delay > 10.0:
+                        delay = 10.0
+            return None
+        return wrapper
+    return decorator
