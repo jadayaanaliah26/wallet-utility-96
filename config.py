@@ -1,70 +1,50 @@
-from typing import Dict, List, Optional
 import os
+import json
+from dataclasses import dataclass, asdict
+from typing import Dict, Any
 
-class WalletConfig:
-    """Configuration manager for crypto wallet utilities."""
+@dataclass
+class Config:
+    network: str = "mainnet"
+    rpc_endpoint: str = "https://rpc.mainnet.com"
+    wallet_address: str = ""
+    private_key: str = ""
+    max_gas_price: int = 100
+    enable_logging: bool = False
 
-    def __init__(self, network: str = "mainnet", api_key: Optional[str] = None) -> None:
-        """Initialize the wallet configuration.
-        Args:
-            network: Blockchain network identifier.
-            api_key: Authentication key for API access.
-        """
-        self.network: str = network
-        self.api_key: Optional[str] = api_key or os.getenv("WALLET_API_KEY")
-        self.endpoints: Dict[str, str] = {}
-        self._initialize_endpoints()
+def load_config(path: str = "config.json") -> Config:
+    defaults: Dict[str, Any] = {
+        "network": "mainnet",
+        "rpc_endpoint": "https://rpc.mainnet.com",
+        "wallet_address": "",
+        "private_key": "",
+        "max_gas_price": 100,
+        "enable_logging": False,
+    }
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            file_data = json.load(f)
+            defaults.update({k: v for k, v in file_data.items() if k in defaults})
+    env_prefix = "WALLET_"
+    env_map = {
+        "network": "NETWORK",
+        "rpc_endpoint": "RPC_ENDPOINT",
+        "wallet_address": "ADDRESS",
+        "private_key": "PRIVATE_KEY",
+        "max_gas_price": "MAX_GAS_PRICE",
+        "enable_logging": "ENABLE_LOGGING",
+    }
+    for key, env_key in env_map.items():
+        env_val = os.getenv(env_prefix + env_key)
+        if env_val is not None:
+            if key == "max_gas_price":
+                defaults[key] = int(env_val)
+            elif key == "enable_logging":
+                defaults[key] = env_val.lower() in ("true", "1", "yes")
+            else:
+                defaults[key] = env_val
+    return Config(**defaults)
 
-    def _initialize_endpoints(self) -> None:
-        """Populate endpoint mappings based on current network."""
-
-        if self.network == "mainnet":
-            self.endpoints = {
-                "btc": "https://blockstream.info/api",
-                "eth": "https://api.etherscan.io/api",
-                "sol": "https://api.mainnet-beta.solana.com"
-            }
-        elif self.network == "testnet":
-            self.endpoints = {
-                "btc": "https://blockstream.info/testnet/api",
-                "eth": "https://api-sepolia.etherscan.io/api",
-                "sol": "https://api.testnet.solana.com"
-            }
-        else:
-            self.endpoints = {}
-
-    def get_endpoint(self, coin: str) -> Optional[str]:
-        """Get the API endpoint for the specified coin.
-        Args:
-            coin: Cryptocurrency ticker symbol.
-        Returns:
-            Endpoint URL string or None.
-        """
-        return self.endpoints.get(coin.lower())
-
-    def get_supported_coins(self) -> List[str]:
-        """List all supported cryptocurrencies.
-        Returns:
-            List of coin symbols.
-        """
-        return list(self.endpoints.keys())
-
-    def is_api_key_valid(self) -> bool:
-        """Verify if a valid API key is configured.
-        Returns:
-            Boolean indicating key validity.
-        """
-        if self.api_key is None:
-            return False
-        return len(self.api_key) >= 16
-
-def load_wallet_config(network: Optional[str] = None) -> WalletConfig:
-    """Load and return a wallet configuration instance.
-    Args:
-        network: Optional network override.
-    Returns:
-        Configured WalletConfig object.
-    """
-    net = network or os.getenv("WALLET_NETWORK", "mainnet")
-    key = os.getenv("WALLET_API_KEY")
-    return WalletConfig(network=net, api_key=key)
+def save_config(config: Config, path: str = "config.json") -> None:
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(asdict(config), f, indent=2)
