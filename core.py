@@ -1,59 +1,33 @@
-from typing import Any, Dict, List
+from functools import lru_cache
 import hashlib
 
-class Wallet:
-    """A simple cryptocurrency wallet class."""
+def _compute_hash(data: str) -> str:
+    return hashlib.sha256(data.encode('utf-8')).hexdigest()
 
-    def __init__(self, private_key: str) -> None:
-        """Initialize the wallet with a private key."""
-        self.private_key = private_key
-        self.address = self._derive_address(private_key)
-        self.balance: float = 0.0
-        self.transactions: List[Dict[str, Any]] = []
+@lru_cache(maxsize=128)
+def derive_wallet_address(seed: str, derivation_index: int = 0) -> str:
+    current = seed
+    for _ in range(1000):
+        current = _compute_hash(current + str(derivation_index))
+    return current[:40]
 
-    def _derive_address(self, private_key: str) -> str:
-        """Derive address from private key using SHA256."""
-        return hashlib.sha256(private_key.encode()).hexdigest()[:42]
+def batch_derive_addresses(seed: str, start_index: int, count: int) -> list:
+    return [derive_wallet_address(seed, i) for i in range(start_index, start_index + count)]
 
-    def get_balance(self) -> float:
-        """Return the current wallet balance."""
-        return self.balance
+class TransactionProcessor:
+    def __init__(self):
+        self.processed = set()
 
-    def add_transaction(self, tx: Dict[str, Any]) -> None:
-        """Add a transaction to the wallet history."""
-        self.transactions.append(tx)
-        if 'amount' in tx:
-            self.balance += tx['amount']
+    def process_batch(self, transactions: list) -> dict:
+        results = {}
+        for tx in transactions:
+            tx_id = tx.get('id', '')
+            if tx_id not in self.processed:
+                amount = tx.get('amount', 0)
+                results[tx_id] = amount * 0.995
+                self.processed.add(tx_id)
+        return results
 
-    def send_funds(self, recipient: str, amount: float) -> bool:
-        """Send funds to recipient if balance is sufficient."""
-        if self.balance >= amount:
-            self.balance -= amount
-            tx = {'to': recipient, 'amount': -amount}
-            self.add_transaction(tx)
-            return True
-        return False
-
-    def get_transactions(self) -> List[Dict[str, Any]]:
-        """Return list of all transactions."""
-        return self.transactions
-
-
-def create_wallet(seed: str) -> Wallet:
-    """Create a new wallet from seed."""
-    private_key = hashlib.sha256(seed.encode()).hexdigest()
-    return Wallet(private_key)
-
-
-def validate_wallet(wallet: Wallet) -> bool:
-    """Validate if wallet has valid address."""
-    return len(wallet.address) == 42
-
-
-def process_batch(transactions: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Process a batch of transactions and return totals."""
-    total_sent = 0.0
-    for tx in transactions:
-        if 'amount' in tx:
-            total_sent += abs(tx['amount'])
-    return {'total': total_sent, 'count': len(transactions)}
+def optimize_balance_lookup(balances: dict, queries: list) -> list:
+    balance_set = set(balances.keys())
+    return [balances.get(q, 0) if q in balance_set else 0 for q in queries]
