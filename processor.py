@@ -1,27 +1,30 @@
-class Base58Processor:
-    ALPHABET = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
-    BASE = 58
-    _DECODE_MAP = {char: index for index, char in enumerate(ALPHABET)}
+import hashlib
+from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
+from typing import Any, Dict, List
 
-    @classmethod
-    def encode(cls, data: bytes) -> str:
-        leading_zeros = len(data) - len(data.lstrip(b"\x00"))
-        value = int.from_bytes(data, byteorder="big")
-        result = bytearray()
-        while value > 0:
-            value, remainder = divmod(value, cls.BASE)
-            result.append(cls.ALPHABET[remainder])
-        result.extend([cls.ALPHABET[0]] * leading_zeros)
-        return result[::-1].decode("ascii")
 
-    @classmethod
-    def decode(cls, data: str) -> bytes:
-        raw_data = data.encode("ascii")
-        leading_zeros = len(raw_data) - len(raw_data.lstrip(b"1"))
-        value = 0
-        for char in raw_data:
-            value = value * cls.BASE + cls._DECODE_MAP[char]
-        value_bytes = value.to_bytes((value.bit_length() + 7) // 8 or 1, byteorder="big")
-        if value_bytes == b"\x00" and value == 0:
-            value_bytes = b""
-        return b"\x00" * leading_zeros + value_bytes
+@lru_cache(maxsize=2048)
+def derive_address_fast(pubkey_bytes: bytes) -> str:
+    sha = hashlib.sha256(pubkey_bytes).digest()
+    return hashlib.new("ripemd160", sha).hexdigest()
+
+
+class BatchTransactionProcessor:
+    def __init__(self, max_workers: int = 8):
+        self.max_workers = max_workers
+
+    def process_payload(self, tx: Dict[str, Any]) -> Dict[str, Any]:
+        pubkey = bytes.fromhex(tx["pubkey"])
+        sender_address = derive_address_fast(pubkey)
+        tx_hash = hashlib.sha256(bytes.fromhex(tx["raw_hex"])).hexdigest()
+        return {
+            "txid": tx_hash,
+            "sender": sender_address,
+            "amount": tx["amount"],
+            "valid": len(tx_hash) == 64,
+        }
+
+    def process_batch(self, transactions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            return list(executor.map(self.process_payload, transactions))
