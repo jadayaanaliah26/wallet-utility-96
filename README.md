@@ -1,45 +1,51 @@
-# Wallet Utility 96
+# wallet-utility-96
 
-Wallet Utility 96 is a Python-based tool designed for simplifying interactions with cryptocurrency wallets. This project provides users with essential functionalities for managing wallet addresses, transactions, and more, making cryptocurrency operations seamless and efficient.
+A high-performance Python toolkit designed for secure mnemonic generation, HD wallet derivation, and multi-chain address validation. This utility streamlines cryptographic workflows by providing a unified interface for interacting with BIP-39 seed phrases and extended private keys.
 
 ## Features
 
-- **Multi-Currency Support**: Effortlessly manage multiple cryptocurrency wallets, including Bitcoin, Ethereum, and Litecoin, through a unified interface.
-- **Transaction Monitoring**: Set up real-time monitoring for incoming and outgoing transactions, ensuring you never miss an important update.
-- **Address Generation**: Quickly generate secure wallet addresses with customizable options for various cryptocurrencies, enhancing user flexibility.
-- **Simple Integration**: Leverage an intuitive API for integrating wallet functionalities into existing applications with minimal setup and configuration.
+*   **BIP-39 Compliance**: Generate cryptographically secure 12, 18, or 24-word mnemonics with built-in checksum validation.
+*   **Hierarchical Deterministic (HD) Derivation**: Derive master keys and child addresses using standard derivation paths (BIP-44/49/84).
+*   **Multi-Chain Support**: Compatible with EVM-based networks and UTXO-based chains via extensible provider classes.
+*   **Zero-Dependency Core**: Lightweight architecture focused on security and auditability by minimizing external runtime requirements.
 
 ## Installation
 
-To get started with Wallet Utility 96, you can clone the repository and install the necessary dependencies. 
+Ensure you have Python 3.9+ installed. It is recommended to use a virtual environment.
 
 ```bash
-git clone https://github.com/username/wallet-utility-96.git
+# Clone the repository
+git clone https://github.com/Developer/wallet-utility-96.git
 cd wallet-utility-96
+
+# Install requirements
 pip install -r requirements.txt
 ```
 
 ## Basic Usage
 
-Here’s a quick example of how to utilize Wallet Utility 96 for generating a Bitcoin address:
+The following snippet demonstrates how to generate a new BIP-39 mnemonic and derive a private key for the default derivation path:
 
 ```python
-from wallet_utility import Wallet
+from wallet_utility import WalletManager
 
-# Create a new wallet instance
-my_wallet = Wallet(currency='bitcoin')
+# Initialize the manager
+manager = WalletManager()
 
-# Generate a new wallet address
-address = my_wallet.generate_address()
-print(f"Your new Bitcoin address: {address}")
+# Generate a new secure seed
+mnemonic = manager.generate_mnemonic(strength=128)
+print(f"Mnemonic: {mnemonic}")
 
-# Monitor transactions
-my_wallet.monitor_transactions(address)
+# Derive private key from seed
+private_key = manager.derive_private_key(mnemonic, path="m/44'/60'/0'/0/0")
+print(f"Derived Key: {private_key}")
 ```
 
-This example showcases the straightforward interface for generating wallet addresses and monitoring transactions, making it easy for developers to incorporate cryptocurrency management into their applications.
+## Security Notice
+This utility is intended for developer research and integration testing. Never hardcode mnemonics or private keys in source control; always utilize environment variables or hardware security modules (HSM) for production key management.
 
 ## License
 
-![License](https://img.shields.io/badge/license-MIT-green)  
-Wallet Utility 96 is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+Distributed under the MIT License. See `LICENSE` for more information.
