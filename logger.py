@@ -1,52 +1,31 @@
 import logging
-import os
-from logging.handlers import RotatingFileHandler
-from typing import Optional
+import sys
+from typing import Any
 
+class WalletLogger:
+    def __init__(self, name: str = 'wallet-utility-96'):
+        self.logger = logging.getLogger(name)
+        self.logger.setLevel(logging.INFO)
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        if not self.logger.handlers:
+            self.logger.addHandler(handler)
 
-def setup_logger(
-    name: str = "wallet_utility",
-    log_file: str = "logs/wallet.log",
-    level: int = logging.INFO,
-    max_bytes: int = 5_242_880,
-    backup_count: int = 5,
-) -> logging.Logger:
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
+    def log_error(self, message: str, context: dict[str, Any] | None = None) -> None:
+        payload = f"error: {message}"
+        if context:
+            payload += f" | context: {context}"
+        self.logger.error(payload)
 
-    if logger.handlers:
-        return logger
+    def handle_exception(self, exc: Exception, context: dict[str, Any] | None = None) -> None:
+        error_details = {
+            'type': type(exc).__name__,
+            'args': str(exc.args),
+        }
+        if context:
+            error_details.update(context)
+        self.log_error(str(exc), error_details)
 
-    log_dir = os.path.dirname(log_file)
-    if log_dir:
-        os.makedirs(log_dir, exist_ok=True)
-
-    formatter = logging.Formatter(
-        fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-    file_handler = RotatingFileHandler(
-        filename=log_file,
-        maxBytes=max_bytes,
-        backupCount=backup_count,
-        encoding="utf-8",
-    )
-    file_handler.setFormatter(formatter)
-    file_handler.setLevel(level)
-
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    console_handler.setLevel(level)
-
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-
-    return logger
-
-
-def get_logger(module_name: Optional[str] = None) -> logging.Logger:
-    base_name = "wallet_utility"
-    if module_name:
-        return logging.getLogger(f"{base_name}.{module_name}")
-    return logging.getLogger(base_name)
+def get_logger() -> WalletLogger:
+    return WalletLogger()
