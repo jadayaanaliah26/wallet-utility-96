@@ -1,30 +1,28 @@
-import hashlib
-from concurrent.futures import ThreadPoolExecutor
-from functools import lru_cache
-from typing import Any, Dict, List
+import time
+import functools
+import logging
+from typing import Callable, Any
 
+logger = logging.getLogger(__name__)
 
-@lru_cache(maxsize=2048)
-def derive_address_fast(pubkey_bytes: bytes) -> str:
-    sha = hashlib.sha256(pubkey_bytes).digest()
-    return hashlib.new("ripemd160", sha).hexdigest()
+def retry_network_op(retries: int = 3, delay: float = 1.0) -> Callable:
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            last_exception = None
+            for attempt in range(retries):
+                try:
+                    return func(*args, **kwargs)
+                except (ConnectionError, TimeoutError) as e:
+                    last_exception = e
+                    logger.warning(f'attempt {attempt + 1} failed: {e}')
+                    time.sleep(delay * (2 ** attempt))
+            raise last_exception
+        return wrapper
+    return decorator
 
-
-class BatchTransactionProcessor:
-    def __init__(self, max_workers: int = 8):
-        self.max_workers = max_workers
-
-    def process_payload(self, tx: Dict[str, Any]) -> Dict[str, Any]:
-        pubkey = bytes.fromhex(tx["pubkey"])
-        sender_address = derive_address_fast(pubkey)
-        tx_hash = hashlib.sha256(bytes.fromhex(tx["raw_hex"])).hexdigest()
-        return {
-            "txid": tx_hash,
-            "sender": sender_address,
-            "amount": tx["amount"],
-            "valid": len(tx_hash) == 64,
-        }
-
-    def process_batch(self, transactions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            return list(executor.map(self.process_payload, transactions))
+class NetworkProcessor:
+    @retry_network_op(retries=3)
+    def fetch_balance(self, address: str) -> float:
+        # simulate network request
+        return 0.0
