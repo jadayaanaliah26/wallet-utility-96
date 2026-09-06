@@ -1,39 +1,34 @@
-import re
-from decimal import Decimal
-def is_valid_address(address):
-    if not isinstance(address, str):
-        return False
-    if len(address) < 26 or len(address) > 35:
-        return False
-    pattern = r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$'
-    return bool(re.match(pattern, address))
-def is_valid_amount(amount_str):
-    try:
-        amount = Decimal(amount_str)
-        return amount > 0
-    except Exception:
-        return False
-def process_operation(address, amount):
-    print('Processed:', amount, 'BTC to', address)
-    return True
-def main():
-    transactions = [
-        {'address': '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa', 'amount': '50'},
-        {'address': '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2', 'amount': '1.5'},
-        {'address': 'invalidaddr', 'amount': '10'},
-        {'address': '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa', 'amount': '0'},
-        {'address': '3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy', 'amount': '2.0'}
-    ]
-    for tx in transactions:
-        addr = tx['address']
-        amt = tx['amount']
-        if not is_valid_address(addr):
-            print('Invalid address skipped:', addr)
-            continue
-        if not is_valid_amount(amt):
-            print('Invalid amount skipped:', amt)
-            continue
-        process_operation(addr, amt)
-    print('All transactions processed')
-if __name__ == '__main__':
-    main()
+import hashlib
+from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
+from typing import Dict, List, Tuple
+
+
+class WalletCore:
+    def __init__(self, pool_size: int = 8) -> None:
+        self.pool_size = pool_size
+
+    @staticmethod
+    @lru_cache(maxsize=4096)
+    def fast_hash(data: bytes) -> str:
+        first = hashlib.sha256(data).digest()
+        return hashlib.sha256(first).hexdigest()
+
+    @classmethod
+    def derive_child_key(cls, parent_key: bytes, index: int) -> bytes:
+        data = parent_key + index.to_bytes(4, byteorder="big")
+        return hashlib.pbkdf2_hmac("sha256", data, b"wallet_salt", 1000)
+
+    def parallel_derive_batch(self, master_seed: bytes, indices: List[int]) -> Dict[int, str]:
+        def process_index(idx: int) -> Tuple[int, str]:
+            child = self.derive_child_key(master_seed, idx)
+            return idx, self.fast_hash(child)
+
+        with ThreadPoolExecutor(max_workers=self.pool_size) as executor:
+            results = executor.map(process_index, indices)
+        return dict(results)
+
+    @lru_cache(maxsize=1024)
+    def verify_checksum(self, payload_hex: str, expected_checksum: str) -> bool:
+        computed = self.fast_hash(bytes.fromhex(payload_hex))[:8]
+        return computed == expected_checksum
