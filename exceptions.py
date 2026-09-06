@@ -1,26 +1,24 @@
 class WalletError(Exception):
     """Base exception for wallet-utility-96"""
 
+class InsufficientFundsError(WalletError):
+    """Raised when balance is too low"""
 
-class ConnectionError(WalletError):
-    """Raised on network communication failures"""
+class InvalidAddressError(WalletError):
+    """Raised for malformed crypto addresses"""
 
+class NetworkTimeoutError(WalletError):
+    """Raised on node connection failures"""
 
-class TransactionError(WalletError):
-    """Raised on invalid blockchain transactions"""
+class TransactionSigningError(WalletError):
+    """Raised when transaction validation fails"""
 
+ERROR_MESSAGES = {
+    InsufficientFundsError: "insufficient balance for transaction execution",
+    InvalidAddressError: "invalid crypto address format provided",
+    NetworkTimeoutError: "node connection timed out",
+    TransactionSigningError: "failure during private key signature process"
+}
 
-class ValidationError(WalletError):
-    """Raised on input validation failure"""
-
-
-class InsufficientFundsError(TransactionError):
-    """Raised when wallet balance is too low"""
-
-
-class InvalidKeyError(WalletError):
-    """Raised when cryptographic keys are malformed"""
-
-
-class RateLimitError(WalletError):
-    """Raised when API request limits are exceeded"""
+def get_error_message(exception: Exception) -> str:
+    return ERROR_MESSAGES.get(type(exception), "an unexpected error occurred")
