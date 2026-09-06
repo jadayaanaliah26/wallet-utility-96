@@ -1,34 +1,42 @@
-import hashlib
-from concurrent.futures import ThreadPoolExecutor
-from functools import lru_cache
-from typing import Dict, List, Tuple
+import re
 
+class WalletProcessor:
+    def __init__(self):
+        self.address_regex = re.compile(r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$')
 
-class WalletCore:
-    def __init__(self, pool_size: int = 8) -> None:
-        self.pool_size = pool_size
+    def is_valid_amount(self, amount: str) -> bool:
+        try:
+            val = float(amount)
+            return val > 0
+        except (ValueError, TypeError):
+            return False
 
-    @staticmethod
-    @lru_cache(maxsize=4096)
-    def fast_hash(data: bytes) -> str:
-        first = hashlib.sha256(data).digest()
-        return hashlib.sha256(first).hexdigest()
+    def is_valid_address(self, address: str) -> bool:
+        return bool(self.address_regex.match(address))
 
-    @classmethod
-    def derive_child_key(cls, parent_key: bytes, index: int) -> bytes:
-        data = parent_key + index.to_bytes(4, byteorder="big")
-        return hashlib.pbkdf2_hmac("sha256", data, b"wallet_salt", 1000)
+    def run_loop(self, queue: list):
+        for item in queue:
+            address = item.get('address')
+            amount = str(item.get('amount', '0'))
 
-    def parallel_derive_batch(self, master_seed: bytes, indices: List[int]) -> Dict[int, str]:
-        def process_index(idx: int) -> Tuple[int, str]:
-            child = self.derive_child_key(master_seed, idx)
-            return idx, self.fast_hash(child)
+            if not self.is_valid_address(address):
+                print(f'Invalid address: {address}')
+                continue
 
-        with ThreadPoolExecutor(max_workers=self.pool_size) as executor:
-            results = executor.map(process_index, indices)
-        return dict(results)
+            if not self.is_valid_amount(amount):
+                print(f'Invalid amount: {amount}')
+                continue
 
-    @lru_cache(maxsize=1024)
-    def verify_checksum(self, payload_hex: str, expected_checksum: str) -> bool:
-        computed = self.fast_hash(bytes.fromhex(payload_hex))[:8]
-        return computed == expected_checksum
+            self.process_transaction(address, float(amount))
+
+    def process_transaction(self, address: str, amount: float):
+        print(f'Processing {amount} to {address}')
+
+if __name__ == '__main__':
+    processor = WalletProcessor()
+    test_queue = [
+        {'address': '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa', 'amount': '0.5'},
+        {'address': 'invalid_addr', 'amount': '0.1'},
+        {'address': '3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy', 'amount': '-5'}
+    ]
+    processor.run_loop(test_queue)
