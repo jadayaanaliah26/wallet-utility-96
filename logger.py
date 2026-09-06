@@ -1,31 +1,29 @@
 import logging
 import sys
-from typing import Any
+from typing import Optional
 
 class WalletLogger:
-    def __init__(self, name: str = 'wallet-utility-96'):
+    """Standardized logging utility for wallet-utility-96."""
+
+    def __init__(self, name: str, level: int = logging.INFO) -> None:
         self.logger = logging.getLogger(name)
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(level)
         handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
         handler.setFormatter(formatter)
-        if not self.logger.handlers:
-            self.logger.addHandler(handler)
+        self.logger.addHandler(handler)
 
-    def log_error(self, message: str, context: dict[str, Any] | None = None) -> None:
-        payload = f"error: {message}"
-        if context:
-            payload += f" | context: {context}"
-        self.logger.error(payload)
+    def info(self, msg: str, *args: object) -> None:
+        """Log info level message."""
+        self.logger.info(msg, *args)
 
-    def handle_exception(self, exc: Exception, context: dict[str, Any] | None = None) -> None:
-        error_details = {
-            'type': type(exc).__name__,
-            'args': str(exc.args),
-        }
-        if context:
-            error_details.update(context)
-        self.log_error(str(exc), error_details)
+    def error(self, msg: str, exc_info: bool = True) -> None:
+        """Log error level message with traceback."""
+        self.logger.error(msg, exc_info=exc_info)
 
-def get_logger() -> WalletLogger:
-    return WalletLogger()
+def get_logger(name: str, level: Optional[int] = None) -> WalletLogger:
+    """Factory function to instantiate a wallet logger."""
+    log_level = level or logging.INFO
+    return WalletLogger(name, log_level)
