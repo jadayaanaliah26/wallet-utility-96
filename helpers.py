@@ -1,38 +1,34 @@
-import re
-from typing import Union
+import hashlib
+import secrets
+from typing import Optional
 
+def generate_entropy(bits: int = 256) -> bytes:
+    return secrets.token_bytes(bits // 8)
 
-def truncate_address(address: str, leading: int = 6, trailing: int = 4) -> str:
-    if not address or len(address) <= leading + trailing:
-        return address
-    return f"{address[:leading]}...{address[-trailing:]}"
+def sha256_hash(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
 
-
-def wei_to_eth(wei_value: int) -> float:
-    if wei_value < 0:
-        raise ValueError("WEI amount cannot be negative")
-    return wei_value / 10**18
-
-
-def eth_to_wei(eth_value: Union[int, float]) -> int:
-    if eth_value < 0:
-        raise ValueError("ETH amount cannot be negative")
-    return int(eth_value * 10**18)
-
-
-def format_crypto_balance(
-    balance: float, decimals: int = 4, symbol: str = ""
-) -> str:
-    formatted = f"{balance:.{decimals}f}"
-    if symbol:
-        return f"{formatted} {symbol}".strip()
-    return formatted
-
-
-def is_valid_hex(hex_str: str) -> bool:
-    if not isinstance(hex_str, str):
+def validate_address_format(address: str, prefix: str = '0x') -> bool:
+    if not address.startswith(prefix):
         return False
-    clean_hex = hex_str[2:] if hex_str.startswith("0x") else hex_str
-    if not clean_hex:
-        return False
-    return bool(re.fullmatch(r"[0-9a-fA-F]+", clean_hex))
+    return len(address[len(prefix):]) == 40 and all(c in '0123456789abcdefABCDEF' for c in address[len(prefix):])
+
+def format_wei_to_eth(wei: int) -> float:
+    return wei / 10**18
+
+def format_eth_to_wei(eth: float) -> int:
+    return int(eth * 10**18)
+
+def sanitize_hex(value: str) -> str:
+    return value.lower().replace('0x', '')
+
+def get_checksum_address(address: str) -> str:
+    clean = sanitize_hex(address)
+    hashed = sha256_hash(clean.encode()).lower()
+    result = ''
+    for i in range(len(clean)):
+        if int(hashed[i], 16) >= 8:
+            result += clean[i].upper()
+        else:
+            result += clean[i].lower()
+    return f'0x{result}'
