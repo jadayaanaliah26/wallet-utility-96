@@ -1,48 +1,38 @@
 import re
-def validate_wallet_address(address):
-    if not isinstance(address, str):
-        return False
-    if not address.startswith("0x"):
-        return False
-    if len(address) != 42:
-        return False
-    if not re.match(r"^0x[0-9a-fA-F]{40}$", address):
-        return False
-    return True
+from typing import Union
 
-def validate_amount(amount):
-    if not isinstance(amount, (int, float)):
-        return False
-    if amount <= 0:
-        return False
-    return True
 
-def process_wallet_data(data_list):
-    processed = []
-    for item in data_list:
-        if not isinstance(item, dict):
-            processed.append({"status": "invalid", "reason": "not dict"})
-            continue
-        address = item.get("address")
-        amount = item.get("amount")
-        if not validate_wallet_address(address):
-            processed.append({"status": "invalid", "address": address, "reason": "bad address"})
-            continue
-        if not validate_amount(amount):
-            processed.append({"status": "invalid", "address": address, "reason": "bad amount"})
-            continue
-        processed.append({"status": "success", "address": address, "amount": amount})
-    return processed
+def truncate_address(address: str, leading: int = 6, trailing: int = 4) -> str:
+    if not address or len(address) <= leading + trailing:
+        return address
+    return f"{address[:leading]}...{address[-trailing:]}"
 
-if __name__ == "__main__":
-    test_data = [
-        {"address": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e", "amount": 1.5},
-        {"address": "0xinvalidaddress", "amount": 100},
-        {"address": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e", "amount": 0},
-        {"address": "0x1234567890123456789012345678901234567890", "amount": 250},
-        "not a dict",
-        {"address": "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd", "amount": -5}
-    ]
-    results = process_wallet_data(test_data)
-    for result in results:
-        print(result)
+
+def wei_to_eth(wei_value: int) -> float:
+    if wei_value < 0:
+        raise ValueError("WEI amount cannot be negative")
+    return wei_value / 10**18
+
+
+def eth_to_wei(eth_value: Union[int, float]) -> int:
+    if eth_value < 0:
+        raise ValueError("ETH amount cannot be negative")
+    return int(eth_value * 10**18)
+
+
+def format_crypto_balance(
+    balance: float, decimals: int = 4, symbol: str = ""
+) -> str:
+    formatted = f"{balance:.{decimals}f}"
+    if symbol:
+        return f"{formatted} {symbol}".strip()
+    return formatted
+
+
+def is_valid_hex(hex_str: str) -> bool:
+    if not isinstance(hex_str, str):
+        return False
+    clean_hex = hex_str[2:] if hex_str.startswith("0x") else hex_str
+    if not clean_hex:
+        return False
+    return bool(re.fullmatch(r"[0-9a-fA-F]+", clean_hex))
