@@ -1,29 +1,34 @@
 import logging
-import sys
-from typing import Optional
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
-class WalletLogger:
-    """Standardized logging utility for wallet-utility-96."""
+LOG_DIR = Path('logs')
+LOG_FILE = LOG_DIR / 'wallet.log'
 
-    def __init__(self, name: str, level: int = logging.INFO) -> None:
-        self.logger = logging.getLogger(name)
-        self.logger.setLevel(level)
-        handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
-        handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
+def setup_logger(name: str = 'wallet_utility') -> logging.Logger:
+    LOG_DIR.mkdir(exist_ok=True)
+    
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+    
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
+    file_handler = RotatingFileHandler(
+        LOG_FILE, 
+        maxBytes=5 * 1024 * 1024, 
+        backupCount=3
+    )
+    file_handler.setFormatter(formatter)
+    
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    
+    if not logger.handlers:
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
+        
+    return logger
 
-    def info(self, msg: str, *args: object) -> None:
-        """Log info level message."""
-        self.logger.info(msg, *args)
-
-    def error(self, msg: str, exc_info: bool = True) -> None:
-        """Log error level message with traceback."""
-        self.logger.error(msg, exc_info=exc_info)
-
-def get_logger(name: str, level: Optional[int] = None) -> WalletLogger:
-    """Factory function to instantiate a wallet logger."""
-    log_level = level or logging.INFO
-    return WalletLogger(name, log_level)
+logger = setup_logger()
