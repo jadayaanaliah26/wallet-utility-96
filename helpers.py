@@ -1,35 +1,42 @@
-import functools
-import logging
-import time
-from typing import Any, Callable, Tuple, Type
+import re
+from typing import Union
 
-logger = logging.getLogger(__name__)
+ETH_DECIMALS = 18
+BTC_DECIMALS = 8
 
 
-def retry_network_op(
-    max_retries: int = 3,
-    delay: float = 1.0,
-    backoff: float = 2.0,
-    exceptions: Tuple[Type[Exception], ...] = (Exception,),
-) -> Callable:
-    def decorator(func: Callable) -> Callable:
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            current_delay = delay
-            for attempt in range(1, max_retries + 1):
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as exc:
-                    if attempt == max_retries:
-                        logger.error(f"Operation failed after {max_retries} attempts: {exc}")
-                        raise
-                    logger.warning(
-                        f"Attempt {attempt}/{max_retries} failed ({exc}). "
-                        f"Retrying in {current_delay:.2f}s..."
-                    )
-                    time.sleep(current_delay)
-                    current_delay *= backoff
+def truncate_address(address: str, leading: int = 6, trailing: int = 4) -> str:
+    if not address or len(address) <= leading + trailing:
+        return address
+    return f"{address[:leading]}...{address[-trailing:]}"
 
-        return wrapper
 
-    return decorator
+def wei_to_ether(wei: int) -> float:
+    if wei < 0:
+        raise ValueError("Amount cannot be negative")
+    return wei / (10**ETH_DECIMALS)
+
+
+def ether_to_wei(ether: Union[int, float]) -> int:
+    if ether < 0:
+        raise ValueError("Amount cannot be negative")
+    return int(ether * (10**ETH_DECIMALS))
+
+
+def sat_to_btc(satoshis: int) -> float:
+    if satoshis < 0:
+        raise ValueError("Amount cannot be negative")
+    return satoshis / (10**BTC_DECIMALS)
+
+
+def btc_to_sat(btc: Union[int, float]) -> int:
+    if btc < 0:
+        raise ValueError("Amount cannot be negative")
+    return int(btc * (10**BTC_DECIMALS))
+
+
+def is_valid_hex(value: str) -> bool:
+    if not isinstance(value, str):
+        return False
+    clean_val = value[2:] if value.startswith("0x") else value
+    return bool(re.fullmatch(r"[0-9a-fA-F]*", clean_val)) and len(clean_val) % 2 == 0
