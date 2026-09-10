@@ -1,23 +1,25 @@
 import re
-from typing import Optional
 
-def validate_address(address: str, chain_type: str = 'evm') -> bool:
-    """Validate cryptocurrency address format."""
-    if chain_type == 'evm':
-        return bool(re.match(r'^0x[a-fA-F0-9]{40}$', address))
-    if chain_type == 'btc':
-        return bool(re.match(r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$', address))
-    return False
+ADDRESS_PATTERN = re.compile(r'^0x[a-fA-F0-9]{40}$')
 
-def validate_amount(amount: str) -> bool:
-    """Validate numeric string for crypto transactions."""
-    try:
-        return float(amount) > 0
-    except (ValueError, TypeError):
-        return False
+class ValidationError(Exception):
+    pass
 
-def sanitize_memo(memo: Optional[str]) -> str:
-    """Remove non-alphanumeric characters from memo."""
-    if not memo:
-        return ""
-    return re.sub(r'[^a-zA-Z0-9 ]', '', memo).strip()
+def validate_address(address: str) -> bool:
+    if not isinstance(address, str) or not ADDRESS_PATTERN.match(address):
+        raise ValidationError(f'Invalid ethereum address format: {address}')
+    return True
+
+def validate_amount(amount: float) -> bool:
+    if not isinstance(amount, (int, float)) or amount <= 0:
+        raise ValidationError(f'Invalid transaction amount: {amount}')
+    return True
+
+def validate_payload(data: dict) -> None:
+    required = ['recipient', 'amount']
+    for field in required:
+        if field not in data:
+            raise ValidationError(f'Missing required field: {field}')
+    
+    validate_address(data['recipient'])
+    validate_amount(data['amount'])
