@@ -1,30 +1,32 @@
-import functools
-from typing import Dict, Any, Optional
+import hmac
+import hashlib
+import time
+from typing import Dict, Any
 
-CACHE: Dict[str, Any] = {}
-
-def memoize(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        key = f"{func.__name__}:{args}:{tuple(sorted(kwargs.items()))}"
-        if key not in CACHE:
-            CACHE[key] = func(*args, **kwargs)
-        return CACHE[key]
-    return wrapper
 
 class TransactionHandler:
-    def __init__(self, node_url: str):
-        self.node_url = node_url
+    def __init__(self, private_key: str):
+        if not private_key:
+            raise ValueError("Private key is required")
+        self._private_key = private_key.encode("utf-8")
 
-    @memoize
-    def get_gas_estimate(self, tx_data: bytes) -> float:
-        # Simulate high-latency RPC call
-        return len(tx_data) * 0.000021
+    def sign_transaction(self, tx_data: Dict[str, Any]) -> str:
+        serialized_tx = f"{tx_data.get('to')}:{tx_data.get('amount')}:{tx_data.get('nonce')}"
+        return hmac.new(
+            self._private_key,
+            serialized_tx.encode("utf-8"),
+            hashlib.sha256
+        ).hexdigest()
 
-    def process_transaction(self, tx_payload: Dict[str, Any]) -> bool:
-        data = tx_payload.get("data", b"")
-        gas = self.get_gas_estimate(data)
-        return gas < tx_payload.get("limit", 0.01)
+    def process_transaction(self, tx_data: Dict[str, Any]) -> Dict[str, Any]:
+        required_fields = {"to", "amount", "nonce"}
+        if not required_fields.issubset(tx_data.keys()):
+            raise ValueError(f"Missing fields: {required_fields - tx_data.keys()}")
 
-    def clear_cache(self) -> None:
-        CACHE.clear()
+        signature = self.sign_transaction(tx_data)
+        return {
+            "tx_hash": hashlib.sha256(signature.encode("utf-8")).hexdigest(),
+            "signature": signature,
+            "timestamp": int(time.time()),
+            "status": "signed"
+        }
