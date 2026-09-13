@@ -1,24 +1,23 @@
-class WalletError(Exception):
-    """Base exception for wallet-utility-96"""
+import time
+import functools
+import logging
+from typing import Callable, Any
 
-class InsufficientFundsError(WalletError):
-    """Raised when balance is too low"""
+logger = logging.getLogger(__name__)
 
-class InvalidAddressError(WalletError):
-    """Raised for malformed crypto addresses"""
-
-class NetworkTimeoutError(WalletError):
-    """Raised on node connection failures"""
-
-class TransactionSigningError(WalletError):
-    """Raised when transaction validation fails"""
-
-ERROR_MESSAGES = {
-    InsufficientFundsError: "insufficient balance for transaction execution",
-    InvalidAddressError: "invalid crypto address format provided",
-    NetworkTimeoutError: "node connection timed out",
-    TransactionSigningError: "failure during private key signature process"
-}
-
-def get_error_message(exception: Exception) -> str:
-    return ERROR_MESSAGES.get(type(exception), "an unexpected error occurred")
+def retry(max_attempts: int = 3, delay: float = 1.0, exceptions: tuple = (ConnectionError, TimeoutError)) -> Callable:
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            last_exception = None
+            for attempt in range(max_attempts):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    last_exception = e
+                    logger.warning(f"Attempt {attempt + 1} failed: {e}")
+                    if attempt < max_attempts - 1:
+                        time.sleep(delay * (2 ** attempt))
+            raise last_exception
+        return wrapper
+    return decorator
