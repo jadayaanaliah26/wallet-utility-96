@@ -1,31 +1,31 @@
-import os
 import json
+import os
 from typing import Any, Dict
 
-DEFAULT_CONFIG: Dict[str, Any] = {
+DEFAULT_CONFIG = {
     "network": "mainnet",
-    "api_url": "https://api.mainnet-beta.solana.com",
     "timeout": 30,
-    "retry_count": 3,
-    "enable_logging": True
+    "retry_attempts": 3,
+    "rpc_url": "https://api.mainnet.com"
 }
 
 class ConfigLoader:
     def __init__(self, config_path: str = "config.json"):
         self.config_path = config_path
-        self.config = self._load_config()
+        self.settings = DEFAULT_CONFIG.copy()
+        self._load()
 
-    def _load_config(self) -> Dict[str, Any]:
-        config = DEFAULT_CONFIG.copy()
+    def _load(self) -> None:
         if os.path.exists(self.config_path):
             try:
                 with open(self.config_path, "r") as f:
                     user_config = json.load(f)
-                    if isinstance(user_config, dict):
-                        config.update(user_config)
+                    self.settings.update(user_config)
             except (json.JSONDecodeError, IOError):
                 pass
-        return config
 
     def get(self, key: str, default: Any = None) -> Any:
-        return self.config.get(key, default)
+        return self.settings.get(key, default)
+
+    def __getitem__(self, key: str) -> Any:
+        return self.settings[key]
