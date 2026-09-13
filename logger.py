@@ -1,51 +1,34 @@
 import logging
-from logging.handlers import RotatingFileHandler
-from pathlib import Path
-from typing import Optional
+import sys
+from typing import Any
 
-DEFAULT_LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
-DEFAULT_LOG_DIR = Path("logs")
-MAX_LOG_SIZE_BYTES = 5 * 1024 * 1024
-BACKUP_COUNT = 5
+class WalletLogger:
+    def __init__(self, name: str = 'wallet-utility-96'):
+        self.logger = logging.getLogger(name)
+        self.logger.setLevel(logging.INFO)
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
 
+    def log_error(self, operation: str, error: Exception) -> None:
+        if not isinstance(error, Exception):
+            self.logger.error(f'invalid error type in {operation}')
+            return
+        
+        error_details = {
+            'op': operation,
+            'type': type(error).__name__,
+            'msg': str(error)
+        }
+        self.logger.error(f'failed {operation}: {error_details}')
 
-def setup_logger(
-    name: str = "wallet_utility",
-    log_level: int = logging.INFO,
-    log_dir: Optional[Path] = None,
-    max_bytes: int = MAX_LOG_SIZE_BYTES,
-    backup_count: int = BACKUP_COUNT,
-) -> logging.Logger:
-    logger = logging.getLogger(name)
-    logger.setLevel(log_level)
-
-    if logger.handlers:
-        return logger
-
-    formatter = logging.Formatter(DEFAULT_LOG_FORMAT)
-
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-
-    target_dir = log_dir or DEFAULT_LOG_DIR
-    target_dir.mkdir(parents=True, exist_ok=True)
-
-    file_path = target_dir / f"{name}.log"
-    file_handler = RotatingFileHandler(
-        file_path,
-        maxBytes=max_bytes,
-        backupCount=backup_count,
-        encoding="utf-8",
-    )
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-
-    return logger
-
-
-def get_logger(name: str = "wallet_utility") -> logging.Logger:
-    logger = logging.getLogger(name)
-    if not logger.handlers:
-        return setup_logger(name)
-    return logger
+    def safe_execute(self, func: callable, *args: Any, **kwargs: Any) -> Any:
+        try:
+            return func(*args, **kwargs)
+        except (ValueError, TypeError, ConnectionError) as e:
+            self.log_error(func.__name__, e)
+            return None
+        except Exception as e:
+            self.logger.critical(f'unexpected fatal error in {func.__name__}: {str(e)}')
+            raise
