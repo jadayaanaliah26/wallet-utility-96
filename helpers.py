@@ -1,27 +1,35 @@
-import logging
-from typing import Any, Optional
+import hashlib
+import secrets
 
-class WalletError(Exception):
-    pass
+BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 
-def safe_execute(func: callable, *args: Any, **kwargs: Any) -> Optional[Any]:
-    try:
-        return func(*args, **kwargs)
-    except (ValueError, TypeError, ConnectionError) as e:
-        logging.error(f"operation failure: {type(e).__name__} - {e}")
-        return None
-    except Exception as e:
-        logging.critical(f"unexpected system error: {e}")
-        raise WalletError("critical wallet transaction failure") from e
 
-def validate_address(address: str) -> bool:
-    if not isinstance(address, str) or len(address) < 26:
-        return False
-    return address.isalnum()
+def base58_encode(data: bytes) -> str:
+    n = int.from_bytes(data, "big")
+    result = []
+    while n > 0:
+        n, r = divmod(n, 58)
+        result.append(BASE58_ALPHABET[r])
+    zeros = 0
+    for byte in data:
+        if byte == 0:
+            zeros += 1
+        else:
+            break
+    return (BASE58_ALPHABET[0] * zeros) + "".join(reversed(result))
 
-def format_balance(amount: Any) -> str:
-    try:
-        value = float(amount)
-        return f"{value:.8f}"
-    except (ValueError, TypeError):
-        return "0.00000000"
+
+def double_sha256(data: bytes) -> bytes:
+    return hashlib.sha256(hashlib.sha256(data).digest()).digest()
+
+
+def generate_private_key() -> str:
+    return secrets.token_hex(32)
+
+
+def wei_to_ether(wei: int) -> float:
+    return wei / (10**18)
+
+
+def ether_to_wei(ether: float) -> int:
+    return int(ether * (10**18))
