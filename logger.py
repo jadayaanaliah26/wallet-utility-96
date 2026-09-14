@@ -1,34 +1,34 @@
 import logging
-import sys
-from typing import Any
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
-class WalletLogger:
-    def __init__(self, name: str = 'wallet-utility-96'):
-        self.logger = logging.getLogger(name)
-        self.logger.setLevel(logging.INFO)
-        handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
+LOG_DIR = Path("logs")
+LOG_FILE = LOG_DIR / "wallet.log"
 
-    def log_error(self, operation: str, error: Exception) -> None:
-        if not isinstance(error, Exception):
-            self.logger.error(f'invalid error type in {operation}')
-            return
+def setup_logger(name: str = "wallet_logger", level: int = logging.INFO) -> logging.Logger:
+    LOG_DIR.mkdir(exist_ok=True)
+    
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    
+    file_handler = RotatingFileHandler(
+        LOG_FILE, 
+        maxBytes=5 * 1024 * 1024, 
+        backupCount=5
+    )
+    file_handler.setFormatter(formatter)
+    
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    
+    if not logger.handlers:
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
         
-        error_details = {
-            'op': operation,
-            'type': type(error).__name__,
-            'msg': str(error)
-        }
-        self.logger.error(f'failed {operation}: {error_details}')
+    return logger
 
-    def safe_execute(self, func: callable, *args: Any, **kwargs: Any) -> Any:
-        try:
-            return func(*args, **kwargs)
-        except (ValueError, TypeError, ConnectionError) as e:
-            self.log_error(func.__name__, e)
-            return None
-        except Exception as e:
-            self.logger.critical(f'unexpected fatal error in {func.__name__}: {str(e)}')
-            raise
+logger = setup_logger()
