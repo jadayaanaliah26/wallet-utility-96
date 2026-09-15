@@ -1,24 +1,30 @@
-from typing import Union, Optional
-from decimal import Decimal
+import hashlib
+import json
+from typing import Dict, Any, List
 
-def format_amount(value: Union[int, float, str, Decimal], decimals: int = 8) -> Decimal:
-    return Decimal(str(value)).quantize(Decimal(f"1.{'0' * decimals}"))
+class TransactionProcessor:
+    def __init__(self, chain_id: int = 1):
+        self.chain_id = chain_id
 
-def validate_address(address: str, prefix: str = "0x") -> bool:
-    if not address or not address.startswith(prefix):
-        return False
-    return len(address) == 42 and address[2:].isalnum()
+    def compute_tx_hash(self, tx_data: Dict[str, Any]) -> str:
+        serialized = json.dumps(tx_data, sort_keys=True).encode("utf-8")
+        return hashlib.sha256(serialized).hexdigest()
 
-def calculate_fee(amount: Decimal, rate: float) -> Decimal:
-    return (amount * Decimal(str(rate))).quantize(Decimal("1.00000000"))
+    def validate_structure(self, tx_data: Dict[str, Any]) -> bool:
+        required_fields = {"sender", "recipient", "amount", "nonce"}
+        return all(field in tx_data for field in required_fields)
 
-def mask_address(address: str) -> str:
-    if len(address) < 10:
-        return address
-    return f"{address[:6]}...{address[-4:]}"
-
-def to_wei(amount: Union[float, Decimal]) -> int:
-    return int(Decimal(str(amount)) * 10**18)
-
-def from_wei(amount: int) -> Decimal:
-    return Decimal(amount) / Decimal(10**18)
+    def process_batch(self, transactions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        processed = []
+        for tx in transactions:
+            if not self.validate_structure(tx):
+                continue
+            tx_hash = self.compute_tx_hash(tx)
+            processed_tx = {
+                **tx,
+                "tx_hash": tx_hash,
+                "chain_id": self.chain_id,
+                "status": "ready"
+            }
+            processed.append(processed_tx)
+        return processed
