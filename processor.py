@@ -1,39 +1,24 @@
 from typing import Union, Optional
-import hashlib
+from decimal import Decimal
 
+def format_amount(value: Union[int, float, str, Decimal], decimals: int = 8) -> Decimal:
+    return Decimal(str(value)).quantize(Decimal(f"1.{'0' * decimals}"))
 
-def format_address(address: str) -> str:
-    return address.strip().lower()
-
-
-def validate_checksum(address: str) -> bool:
-    if not address.startswith('0x') or len(address) != 42:
+def validate_address(address: str, prefix: str = "0x") -> bool:
+    if not address or not address.startswith(prefix):
         return False
-    return address == address.lower()
+    return len(address) == 42 and address[2:].isalnum()
 
+def calculate_fee(amount: Decimal, rate: float) -> Decimal:
+    return (amount * Decimal(str(rate))).quantize(Decimal("1.00000000"))
 
-def calculate_hash(data: str) -> str:
-    return hashlib.sha256(data.encode()).hexdigest()
+def mask_address(address: str) -> str:
+    if len(address) < 10:
+        return address
+    return f"{address[:6]}...{address[-4:]}"
 
+def to_wei(amount: Union[float, Decimal]) -> int:
+    return int(Decimal(str(amount)) * 10**18)
 
-def wei_to_eth(wei: Union[int, float]) -> float:
-    return float(wei) / 10**18
-
-
-def eth_to_wei(eth: Union[int, float]) -> int:
-    return int(float(eth) * 10**18)
-
-
-def sanitize_input(value: Optional[str]) -> str:
-    if not value:
-        return ''
-    return ''.join(c for c in value if c.isalnum())
-
-
-def format_transaction_data(to_addr: str, value: int, data: str = '') -> dict:
-    return {
-        'to': format_address(to_addr),
-        'value': value,
-        'data': data,
-        'gas': 21000
-    }
+def from_wei(amount: int) -> Decimal:
+    return Decimal(amount) / Decimal(10**18)
