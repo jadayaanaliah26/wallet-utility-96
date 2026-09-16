@@ -1,31 +1,27 @@
-import json
 import os
-from typing import Any, Dict
+from typing import Dict, Any
+from dataclasses import dataclass
 
-DEFAULT_CONFIG = {
-    "network": "mainnet",
-    "timeout": 30,
-    "retry_attempts": 3,
-    "rpc_url": "https://api.mainnet.com"
-}
+@dataclass(frozen=True)
+class NetworkConfig:
+    mainnet: str = "https://mainnet.infura.io/v3/"
+    testnet: str = "https://sepolia.infura.io/v3/"
 
-class ConfigLoader:
-    def __init__(self, config_path: str = "config.json"):
-        self.config_path = config_path
-        self.settings = DEFAULT_CONFIG.copy()
-        self._load()
+class Settings:
+    def __init__(self) -> None:
+        self._env: str = os.getenv("ENV", "development")
+        self.timeout: int = 30
+        self.retry_limit: int = 3
 
-    def _load(self) -> None:
-        if os.path.exists(self.config_path):
-            try:
-                with open(self.config_path, "r") as f:
-                    user_config = json.load(f)
-                    self.settings.update(user_config)
-            except (json.JSONDecodeError, IOError):
-                pass
+    @property
+    def network_urls(self) -> Dict[str, str]:
+        return {
+            "prod": NetworkConfig.mainnet,
+            "dev": NetworkConfig.testnet
+        }
 
-    def get(self, key: str, default: Any = None) -> Any:
-        return self.settings.get(key, default)
+    def get_provider_url(self) -> str:
+        key = "prod" if self._env == "production" else "dev"
+        return self.network_urls[key] + os.getenv("API_KEY", "")
 
-    def __getitem__(self, key: str) -> Any:
-        return self.settings[key]
+config = Settings()
