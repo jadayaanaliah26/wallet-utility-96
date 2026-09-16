@@ -1,26 +1,15 @@
 import re
-from typing import Any
 
-class ValidationError(Exception):
-    pass
+ADDRESS_PATTERN = re.compile(r'^0x[a-fA-F0-9]{40}$')
 
 def validate_address(address: str) -> bool:
-    if not isinstance(address, str) or not re.match(r'^0x[a-fA-F0-9]{40}$', address):
-        raise ValidationError(f'Invalid ethereum address format: {address}')
-    return True
+    return bool(ADDRESS_PATTERN.match(address))
 
-def validate_amount(amount: Any) -> bool:
-    try:
-        value = float(amount)
-        if value <= 0:
-            raise ValueError
-        return True
-    except (ValueError, TypeError):
-        raise ValidationError(f'Invalid transaction amount: {amount}')
+def validate_amount(amount: float) -> bool:
+    return isinstance(amount, (int, float)) and amount > 0
 
-def validate_payload(data: dict) -> None:
-    required = {'address', 'amount'}
-    if not all(k in data for k in required):
-        raise ValidationError('Missing required transaction fields')
-    validate_address(data['address'])
-    validate_amount(data['amount'])
+def validate_payload(data: dict) -> bool:
+    required = ['address', 'amount']
+    if not all(key in data for key in required):
+        return False
+    return validate_address(data['address']) and validate_amount(data['amount'])
