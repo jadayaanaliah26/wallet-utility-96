@@ -1,34 +1,42 @@
+import os
 import logging
 from logging.handlers import RotatingFileHandler
-from pathlib import Path
 
-LOG_DIR = Path("logs")
-LOG_FILE = LOG_DIR / "wallet.log"
-
-def setup_logger(name: str = "wallet_logger", level: int = logging.INFO) -> logging.Logger:
-    LOG_DIR.mkdir(exist_ok=True)
-    
+def setup_logger(
+    name: str = "wallet_utility",
+    log_file: str = "wallet.log",
+    level: int = logging.INFO,
+    max_bytes: int = 5 * 1024 * 1024,
+    backup_count: int = 5
+) -> logging.Logger:
     logger = logging.getLogger(name)
     logger.setLevel(level)
-    
+
+    if logger.hasHandlers():
+        return logger
+
     formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
-    
-    file_handler = RotatingFileHandler(
-        LOG_FILE, 
-        maxBytes=5 * 1024 * 1024, 
-        backupCount=5
-    )
-    file_handler.setFormatter(formatter)
-    
+
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
-    
-    if not logger.handlers:
-        logger.addHandler(file_handler)
-        logger.addHandler(console_handler)
-        
-    return logger
+    logger.addHandler(console_handler)
 
-logger = setup_logger()
+    try:
+        log_dir = os.path.dirname(os.path.abspath(log_file))
+        if log_dir and not os.path.exists(log_dir):
+            os.makedirs(log_dir, exist_ok=True)
+
+        file_handler = RotatingFileHandler(
+            log_file,
+            maxBytes=max_bytes,
+            backupCount=backup_count,
+            encoding="utf-8"
+        )
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+    except (OSError, PermissionError) as e:
+        logger.warning(f"Failed to initialize file logger: {e}")
+
+    return logger
