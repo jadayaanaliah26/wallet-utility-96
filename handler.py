@@ -1,32 +1,33 @@
-import hmac
-import hashlib
-import time
-from typing import Dict, Any
+import functools
+from typing import Callable, Any, Dict
 
+class TransactionCache:
+    _storage: Dict[str, Any] = {}
 
-class TransactionHandler:
-    def __init__(self, private_key: str):
-        if not private_key:
-            raise ValueError("Private key is required")
-        self._private_key = private_key.encode("utf-8")
+    @classmethod
+    def get(cls, tx_id: str) -> Any:
+        return cls._storage.get(tx_id)
 
-    def sign_transaction(self, tx_data: Dict[str, Any]) -> str:
-        serialized_tx = f"{tx_data.get('to')}:{tx_data.get('amount')}:{tx_data.get('nonce')}"
-        return hmac.new(
-            self._private_key,
-            serialized_tx.encode("utf-8"),
-            hashlib.sha256
-        ).hexdigest()
+    @classmethod
+    def set(cls, tx_id: str, value: Any) -> None:
+        cls._storage[tx_id] = value
 
-    def process_transaction(self, tx_data: Dict[str, Any]) -> Dict[str, Any]:
-        required_fields = {"to", "amount", "nonce"}
-        if not required_fields.issubset(tx_data.keys()):
-            raise ValueError(f"Missing fields: {required_fields - tx_data.keys()}")
+    @classmethod
+    def clear(cls) -> None:
+        cls._storage.clear()
 
-        signature = self.sign_transaction(tx_data)
-        return {
-            "tx_hash": hashlib.sha256(signature.encode("utf-8")).hexdigest(),
-            "signature": signature,
-            "timestamp": int(time.time()),
-            "status": "signed"
-        }
+def memoize_transaction(func: Callable) -> Callable:
+    @functools.wraps(func)
+    def wrapper(tx_id: str, *args: Any, **kwargs: Any) -> Any:
+        cached = TransactionCache.get(tx_id)
+        if cached is not None:
+            return cached
+        result = func(tx_id, *args, **kwargs)
+        TransactionCache.set(tx_id, result)
+        return result
+    return wrapper
+
+@memoize_transaction
+def process_wallet_tx(tx_id: str) -> Dict[str, float]:
+    # Simulate intensive cryptographic validation/lookup
+    return {"id": tx_id, "balance": 0.0, "status": "verified"}
