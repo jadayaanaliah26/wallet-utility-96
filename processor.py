@@ -1,30 +1,51 @@
-import hashlib
+import time
+import random
+import logging
+import urllib.request
+import urllib.error
 import json
-from typing import Dict, Any, List
+from typing import Callable, Any, Type, Tuple
 
-class TransactionProcessor:
-    def __init__(self, chain_id: int = 1):
-        self.chain_id = chain_id
+logger = logging.getLogger("wallet_utility.processor")
 
-    def compute_tx_hash(self, tx_data: Dict[str, Any]) -> str:
-        serialized = json.dumps(tx_data, sort_keys=True).encode("utf-8")
-        return hashlib.sha256(serialized).hexdigest()
+def retry_network_op(
+    retries: int = 3,
+    backoff_factor: float = 0.5,
+    exceptions: Tuple[Type[BaseException], ...] = (Exception,)
+) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            attempt = 0
+            while attempt < retries:
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    attempt += 1
+                    if attempt >= retries:
+                        logger.error(f"Operation failed after {retries} attempts: {e}")
+                        raise e
+                    sleep_time = backoff_factor * (2 ** (attempt - 1)) + random.uniform(0, 0.1)
+                    logger.warning(
+                        f"Network operation failed: {e}. Retrying in {sleep_time:.2f}s... "
+                        f"(Attempt {attempt}/{retries})"
+                    )
+                    time.sleep(sleep_time)
+        return wrapper
+    return decorator
 
-    def validate_structure(self, tx_data: Dict[str, Any]) -> bool:
-        required_fields = {"sender", "recipient", "amount", "nonce"}
-        return all(field in tx_data for field in required_fields)
+class CryptoNodeProcessor:
+    def __init__(self, endpoint: str):
+        self.endpoint = endpoint
 
-    def process_batch(self, transactions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        processed = []
-        for tx in transactions:
-            if not self.validate_structure(tx):
-                continue
-            tx_hash = self.compute_tx_hash(tx)
-            processed_tx = {
-                **tx,
-                "tx_hash": tx_hash,
-                "chain_id": self.chain_id,
-                "status": "ready"
-            }
-            processed.append(processed_tx)
-        return processed
+    @retry_network_op(retries=4, backoff_factor=1.0, exceptions=(ConnectionError, TimeoutError))
+    def query_blockchain(self, payload: dict) -> dict:
+        req = urllib.request.Request(
+            self.endpoint,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"}
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except (urllib.error.URLError, urllib.error.HTTPError) as e:
+            raise ConnectionError(f"Failed to connect to node: {e}") from e
