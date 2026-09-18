@@ -1,35 +1,33 @@
-import hashlib
-import secrets
+import time
+import random
+import logging
+from functools import wraps
+from typing import Callable, Any, Type, Tuple
 
-BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+logger = logging.getLogger("wallet_utility.helpers")
 
-
-def base58_encode(data: bytes) -> str:
-    n = int.from_bytes(data, "big")
-    result = []
-    while n > 0:
-        n, r = divmod(n, 58)
-        result.append(BASE58_ALPHABET[r])
-    zeros = 0
-    for byte in data:
-        if byte == 0:
-            zeros += 1
-        else:
-            break
-    return (BASE58_ALPHABET[0] * zeros) + "".join(reversed(result))
-
-
-def double_sha256(data: bytes) -> bytes:
-    return hashlib.sha256(hashlib.sha256(data).digest()).digest()
-
-
-def generate_private_key() -> str:
-    return secrets.token_hex(32)
-
-
-def wei_to_ether(wei: int) -> float:
-    return wei / (10**18)
-
-
-def ether_to_wei(ether: float) -> int:
-    return int(ether * (10**18))
+def retry_network_op(
+    retries: int = 5,
+    backoff_factor: float = 0.5,
+    exceptions: Tuple[Type[BaseException], ...] = (Exception,)
+) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            attempt = 0
+            while attempt < retries:
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    attempt += 1
+                    if attempt >= retries:
+                        logger.error("Max retries reached for %s", func.__name__)
+                        raise e
+                    delay = backoff_factor * (2 ** attempt) + random.uniform(0, 0.5)
+                    logger.warning(
+                        "Retrying %s in %.2fs due to error: %s",
+                        func.__name__, delay, e
+                    )
+                    time.sleep(delay)
+        return wrapper
+    return decorator
