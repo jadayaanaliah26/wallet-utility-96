@@ -1,26 +1,29 @@
-import functools
-from typing import Callable, Any
+import re
 
-_CACHE_SIZE = 1024
+def validate_address(address: str, chain: str) -> bool:
+    patterns = {
+        "btc": r"^(bc1|[13])[a-zA-Z0-9]{25,39}$",
+        "eth": r"^0x[a-fA-F0-9]{40}$"
+    }
+    pattern = patterns.get(chain.lower())
+    return bool(re.match(pattern, address)) if pattern else False
 
-def validate_address_format(address: str) -> bool:
-    return len(address) == 42 and address.startswith('0x')
+def validate_amount(amount: str) -> bool:
+    try:
+        val = float(amount)
+        return val > 0
+    except (ValueError, TypeError):
+        return False
 
-@functools.lru_cache(maxsize=_CACHE_SIZE)
-def cached_address_validator(address: str) -> bool:
-    return validate_address_format(address)
-
-class AddressValidator:
-    def __init__(self, validator_func: Callable[[str], bool] = cached_address_validator):
-        self._validator = validator_func
-
-    def validate(self, addresses: list[str]) -> list[bool]:
-        return [self._validator(addr) for addr in addresses]
-
-def batch_validate(addresses: list[str]) -> list[bool]:
-    validator = AddressValidator()
-    return validator.validate(addresses)
-
-if __name__ == '__main__':
-    sample = ['0x123' * 14, 'invalid', '0xabc' * 14]
-    print(batch_validate(sample))
+def process_wallet_input(data: dict) -> dict:
+    required = ["address", "amount", "chain"]
+    if not all(k in data for k in required):
+        raise ValueError("missing required fields")
+    
+    if not validate_address(data["address"], data["chain"]):
+        raise ValueError("invalid address format")
+    
+    if not validate_amount(data["amount"]):
+        raise ValueError("invalid transaction amount")
+    
+    return data
