@@ -1,34 +1,29 @@
 import re
 
-class WalletValidator:
-    ADDRESS_PATTERN = re.compile(r'^(0x)?[0-9a-fA-F]{40}$')
-
-    @staticmethod
-    def validate_address(address: str) -> bool:
-        return bool(WalletValidator.ADDRESS_PATTERN.match(address))
-
-    @staticmethod
-    def validate_amount(amount: float) -> bool:
-        return isinstance(amount, (int, float)) and amount > 0
-
-def process_transaction(data: dict) -> bool:
-    address = data.get('address', '')
-    amount = data.get('amount', 0)
-
-    if not WalletValidator.validate_address(address):
+def validate_address(address: str) -> bool:
+    if not isinstance(address, str) or len(address) not in (26, 42):
         return False
+    return bool(re.match(r'^[a-zA-Z0-9]+$', address))
 
-    if not WalletValidator.validate_amount(amount):
-        return False
+def validate_amount(amount: float) -> bool:
+    return isinstance(amount, (int, float)) and amount > 0
 
-    return True
+def process_wallet_input(data: dict) -> dict:
+    address = data.get("address")
+    amount = data.get("amount")
+    
+    if not validate_address(address):
+        raise ValueError("invalid wallet address format")
+    if not validate_amount(amount):
+        raise ValueError("invalid transaction amount")
+    
+    return {"status": "valid", "address": address, "amount": float(amount)}
 
-def run_processing_loop(queue: list):
-    for entry in queue:
+def run_processing_loop(inputs: list) -> list:
+    results = []
+    for entry in inputs:
         try:
-            if process_transaction(entry):
-                print(f"Processing {entry.get('address')}")
-            else:
-                print(f"Invalid transaction data: {entry}")
-        except Exception:
+            results.append(process_wallet_input(entry))
+        except (ValueError, TypeError):
             continue
+    return results
