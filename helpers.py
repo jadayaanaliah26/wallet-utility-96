@@ -1,33 +1,35 @@
-import time
-import random
-import logging
-from functools import wraps
-from typing import Callable, Any, Type, Tuple
+import re
+from decimal import Decimal
+from typing import Union
 
-logger = logging.getLogger("wallet_utility.helpers")
 
-def retry_network_op(
-    retries: int = 5,
-    backoff_factor: float = 0.5,
-    exceptions: Tuple[Type[BaseException], ...] = (Exception,)
-) -> Callable:
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            attempt = 0
-            while attempt < retries:
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as e:
-                    attempt += 1
-                    if attempt >= retries:
-                        logger.error("Max retries reached for %s", func.__name__)
-                        raise e
-                    delay = backoff_factor * (2 ** attempt) + random.uniform(0, 0.5)
-                    logger.warning(
-                        "Retrying %s in %.2fs due to error: %s",
-                        func.__name__, delay, e
-                    )
-                    time.sleep(delay)
-        return wrapper
-    return decorator
+def wei_to_ether(wei_amount: int) -> Decimal:
+    if wei_amount < 0:
+        raise ValueError("Wei amount cannot be negative")
+    return Decimal(wei_amount) / Decimal(10**18)
+
+
+def ether_to_wei(ether_amount: Union[float, str, Decimal]) -> int:
+    amount = Decimal(str(ether_amount))
+    if amount < 0:
+        raise ValueError("Ether amount cannot be negative")
+    return int(amount * Decimal(10**18))
+
+
+def is_valid_eth_address(address: str) -> bool:
+    if not isinstance(address, str):
+        return False
+    return bool(re.match(r"^0x[a-fA-F0-9]{40}$", address))
+
+
+def truncate_address(address: str, chars: int = 4) -> str:
+    if not is_valid_eth_address(address):
+        raise ValueError("Invalid Ethereum address format")
+    return f"{address[:chars + 2]}...{address[-chars:]}"
+
+
+def mask_private_key(key: str) -> str:
+    clean_key = key.removeprefix("0x")
+    if len(clean_key) != 64:
+        raise ValueError("Invalid private key length")
+    return f"0x{clean_key[:4]}...{clean_key[-4:]}"
