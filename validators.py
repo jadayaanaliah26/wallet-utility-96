@@ -1,29 +1,31 @@
 import re
 
-def validate_address(address: str, chain: str) -> bool:
-    patterns = {
-        "btc": r"^(bc1|[13])[a-zA-Z0-9]{25,39}$",
-        "eth": r"^0x[a-fA-F0-9]{40}$"
-    }
-    pattern = patterns.get(chain.lower())
-    return bool(re.match(pattern, address)) if pattern else False
+def validate_address(address: str) -> bool:
+    if not isinstance(address, str) or len(address) < 26:
+        return False
+    return bool(re.match(r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$', address))
 
-def validate_amount(amount: str) -> bool:
+def validate_amount(amount: float) -> bool:
     try:
-        val = float(amount)
-        return val > 0
-    except (ValueError, TypeError):
+        return isinstance(amount, (int, float)) and amount > 0
+    except TypeError:
         return False
 
-def process_wallet_input(data: dict) -> dict:
-    required = ["address", "amount", "chain"]
-    if not all(k in data for k in required):
-        raise ValueError("missing required fields")
-    
-    if not validate_address(data["address"], data["chain"]):
-        raise ValueError("invalid address format")
-    
-    if not validate_amount(data["amount"]):
-        raise ValueError("invalid transaction amount")
-    
-    return data
+def process_transaction(data: dict) -> bool:
+    address = data.get("to_address")
+    amount = data.get("amount")
+
+    if not validate_address(address):
+        return False
+
+    if not validate_amount(amount):
+        return False
+
+    return True
+
+def run_processing_loop(queue: list):
+    for item in queue:
+        if process_transaction(item):
+            print(f"Processing: {item.get('id')}")
+        else:
+            print(f"Invalid transaction: {item.get('id')}")
