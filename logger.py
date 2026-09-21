@@ -1,32 +1,29 @@
 import logging
-from logging.handlers import RotatingFileHandler
-from pathlib import Path
+import sys
+from typing import Any
 
-LOG_DIR = Path("logs")
-LOG_FILE = LOG_DIR / "wallet.log"
+class WalletLogger:
+    def __init__(self, name: str = 'wallet-utility-96'):
+        self.logger = logging.getLogger(name)
+        self.logger.setLevel(logging.INFO)
+        handler = logging.StreamHandler(sys.stderr)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
 
-def setup_logger(name: str = "wallet_utility") -> logging.Logger:
-    LOG_DIR.mkdir(exist_ok=True)
-    
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
-    
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
-    
-    file_handler = RotatingFileHandler(
-        LOG_FILE, 
-        maxBytes=5 * 1024 * 1024, 
-        backupCount=5
-    )
-    file_handler.setFormatter(formatter)
-    
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    
-    if not logger.handlers:
-        logger.addHandler(file_handler)
-        logger.addHandler(console_handler)
-    
-    return logger
+    def log_error(self, message: str, exc: Exception) -> None:
+        error_type = type(exc).__name__
+        self.logger.error(f'{message} | type: {error_type} | detail: {str(exc)}')
+
+    def safe_execution(self, func: Any, *args: Any, **kwargs: Any) -> Any:
+        try:
+            return func(*args, **kwargs)
+        except ConnectionError as e:
+            self.log_error('network connectivity failure', e)
+        except ValueError as e:
+            self.log_error('invalid input data processing', e)
+        except Exception as e:
+            self.log_error('unexpected runtime critical failure', e)
+        return None
+
+logger = WalletLogger()
