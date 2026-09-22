@@ -1,33 +1,27 @@
+import time
 import functools
-from typing import Callable, Any, Dict
+import logging
+from typing import Callable, Any
 
-class TransactionCache:
-    _storage: Dict[str, Any] = {}
+logger = logging.getLogger(__name__)
 
-    @classmethod
-    def get(cls, tx_id: str) -> Any:
-        return cls._storage.get(tx_id)
+def retry_network_call(max_retries: int = 3, delay: float = 1.0):
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            last_exception = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except (ConnectionError, TimeoutError) as e:
+                    last_exception = e
+                    logger.warning(f"attempt {attempt + 1} failed: {e}")
+                    time.sleep(delay * (2 ** attempt))
+            raise last_exception
+        return wrapper
+    return decorator
 
-    @classmethod
-    def set(cls, tx_id: str, value: Any) -> None:
-        cls._storage[tx_id] = value
-
-    @classmethod
-    def clear(cls) -> None:
-        cls._storage.clear()
-
-def memoize_transaction(func: Callable) -> Callable:
-    @functools.wraps(func)
-    def wrapper(tx_id: str, *args: Any, **kwargs: Any) -> Any:
-        cached = TransactionCache.get(tx_id)
-        if cached is not None:
-            return cached
-        result = func(tx_id, *args, **kwargs)
-        TransactionCache.set(tx_id, result)
-        return result
-    return wrapper
-
-@memoize_transaction
-def process_wallet_tx(tx_id: str) -> Dict[str, float]:
-    # Simulate intensive cryptographic validation/lookup
-    return {"id": tx_id, "balance": 0.0, "status": "verified"}
+@retry_network_call(max_retries=3)
+def fetch_balance(address: str):
+    # Simulate network call logic
+    pass
