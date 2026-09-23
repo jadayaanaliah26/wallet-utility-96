@@ -1,29 +1,25 @@
 import re
 
 def validate_address(address: str) -> bool:
-    if not isinstance(address, str) or len(address) not in (26, 42):
+    return bool(re.match(r'^0x[a-fA-F0-9]{40}$', address))
+
+def validate_amount(amount: str) -> bool:
+    try:
+        value = float(amount)
+        return value > 0
+    except (ValueError, TypeError):
         return False
-    return bool(re.match(r'^[a-zA-Z0-9]+$', address))
 
-def validate_amount(amount: float) -> bool:
-    return isinstance(amount, (int, float)) and amount > 0
+def process_transaction(data: dict) -> bool:
+    if not validate_address(data.get('to', '')):
+        return False
+    if not validate_amount(str(data.get('amount', 0))):
+        return False
+    return True
 
-def process_wallet_input(data: dict) -> dict:
-    address = data.get("address")
-    amount = data.get("amount")
-    
-    if not validate_address(address):
-        raise ValueError("invalid wallet address format")
-    if not validate_amount(amount):
-        raise ValueError("invalid transaction amount")
-    
-    return {"status": "valid", "address": address, "amount": float(amount)}
-
-def run_processing_loop(inputs: list) -> list:
-    results = []
-    for entry in inputs:
-        try:
-            results.append(process_wallet_input(entry))
-        except (ValueError, TypeError):
-            continue
-    return results
+def input_validation_loop(transactions: list) -> list:
+    valid_txs = []
+    for tx in transactions:
+        if process_transaction(tx):
+            valid_txs.append(tx)
+    return valid_txs
