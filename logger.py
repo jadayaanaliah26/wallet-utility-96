@@ -1,46 +1,33 @@
-import sys
 import logging
-from logging.handlers import RotatingFileHandler
-from pathlib import Path
+import sys
+from typing import Any
 
+class WalletLogger:
+    def __init__(self, name: str = "wallet-utility-96") -> None:
+        self.logger = logging.getLogger(name)
+        self.logger.setLevel(logging.INFO)
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
 
-def get_logger(
-    name: str = "wallet_utility",
-    log_dir: str = "logs",
-    log_file: str = "wallet.log",
-    max_bytes: int = 5 * 1024 * 1024,
-    backup_count: int = 5,
-    level: int = logging.INFO,
-) -> logging.Logger:
-    logger = logging.getLogger(name)
-    if logger.hasHandlers():
-        return logger
+    def log_error(self, message: str, context: Any = None) -> None:
+        if context:
+            self.logger.error(f"{message} | context: {context}")
+        else:
+            self.logger.error(message)
 
-    logger.setLevel(level)
+    def safe_execution(self, func, *args, **kwargs) -> Any:
+        try:
+            return func(*args, **kwargs)
+        except ValueError as ve:
+            self.log_error("invalid input value", str(ve))
+        except ConnectionError as ce:
+            self.log_error("network connectivity issue", str(ce))
+        except Exception as e:
+            self.log_error("unexpected system failure", str(e))
+        return None
 
-    path = Path(log_dir)
-    path.mkdir(parents=True, exist_ok=True)
-    file_path = path / log_file
-
-    formatter = logging.Formatter(
-        "%(asctime)s | %(levelname)-8s | %(name)s:%(funcName)s:%(lineno)d - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-
-    file_handler = RotatingFileHandler(
-        file_path,
-        maxBytes=max_bytes,
-        backupCount=backup_count,
-        encoding="utf-8",
-    )
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-
-    return logger
-
-
-wallet_logger = get_logger()
+logger = WalletLogger()
