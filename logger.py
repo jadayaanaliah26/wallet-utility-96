@@ -1,33 +1,29 @@
 import logging
-import sys
-from typing import Any
+from logging.handlers import RotatingFileHandler
+import os
 
-class WalletLogger:
-    def __init__(self, name: str = "wallet-utility-96") -> None:
-        self.logger = logging.getLogger(name)
-        self.logger.setLevel(logging.INFO)
-        handler = logging.StreamHandler(sys.stdout)
+LOG_FILE = "wallet.log"
+MAX_BYTES = 5 * 1024 * 1024
+BACKUP_COUNT = 3
+
+def get_logger(name: str) -> logging.Logger:
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+
+    if not logger.handlers:
+        handler = RotatingFileHandler(
+            LOG_FILE, 
+            maxBytes=MAX_BYTES, 
+            backup_count=BACKUP_COUNT
+        )
         formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
         handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
+        logger.addHandler(handler)
 
-    def log_error(self, message: str, context: Any = None) -> None:
-        if context:
-            self.logger.error(f"{message} | context: {context}")
-        else:
-            self.logger.error(message)
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
 
-    def safe_execution(self, func, *args, **kwargs) -> Any:
-        try:
-            return func(*args, **kwargs)
-        except ValueError as ve:
-            self.log_error("invalid input value", str(ve))
-        except ConnectionError as ce:
-            self.log_error("network connectivity issue", str(ce))
-        except Exception as e:
-            self.log_error("unexpected system failure", str(e))
-        return None
-
-logger = WalletLogger()
+    return logger
