@@ -1,31 +1,47 @@
-class CryptoError(Exception):
-    """Base exception for wallet-utility-96"""
+class WalletError(Exception):
+    """Base exception for all wallet operations."""
+    pass
 
 
-class InsufficientFundsError(CryptoError):
-    """Raised when transaction value exceeds balance"""
+class InvalidAddressError(WalletError):
+    """Raised when a cryptocurrency address format is invalid."""
+
+    def __init__(self, address: str, chain: str = "unknown"):
+        self.address = address
+        self.chain = chain
+        super().__init__(f"Invalid {chain} address format: '{address}'")
 
 
-class InvalidAddressError(CryptoError):
-    """Raised for malformed blockchain addresses"""
+class InvalidPrivateKeyError(WalletError):
+    """Raised when a private key fails validation."""
+
+    def __init__(self, message: str = "Invalid private key provided"):
+        super().__init__(message)
 
 
-class NetworkTimeoutError(CryptoError):
-    """Raised when RPC calls exceed limit"""
+class InsufficientFundsError(WalletError):
+    """Raised when a wallet has insufficient balance for a transaction."""
+
+    def __init__(self, required: float, available: float, asset: str):
+        self.required = required
+        self.available = available
+        self.asset = asset
+        super().__init__(
+            f"Insufficient funds for {asset}: required {required}, available {available}"
+        )
 
 
-class SignatureError(CryptoError):
-    """Raised when transaction signing fails"""
+class TransactionError(WalletError):
+    """Raised when a transaction broadcast or signing fails."""
+
+    def __init__(self, tx_hash: str, message: str):
+        self.tx_hash = tx_hash
+        super().__init__(f"Transaction {tx_hash} failed: {message}")
 
 
-def raise_for_status(response_code: int) -> None:
-    """Map status codes to specific exceptions"""
-    errors = {
-        400: InvalidAddressError("Bad request or invalid address"),
-        402: InsufficientFundsError("Insufficient balance for transaction"),
-        408: NetworkTimeoutError("RPC request timed out"),
-        401: SignatureError("Failed to sign transaction payload")
-    }
-    
-    if response_code in errors:
-        raise errors[response_code]
+class NodeConnectionError(WalletError):
+    """Raised when connection to RPC node fails."""
+
+    def __init__(self, endpoint: str, message: str = "Connection failed"):
+        self.endpoint = endpoint
+        super().__init__(f"Node error at {endpoint}: {message}")
