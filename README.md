@@ -1,47 +1,55 @@
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
 # wallet-utility-96
 
-`wallet-utility-96` is a lightweight Python toolkit designed for automated EVM wallet management, transaction batching, and balance tracking across multiple blockchain networks. It streamlines decentralized interactions by providing secure key derivation, gas optimization, and real-time token allowance audits.
+A high-performance Python toolkit designed for seamless cryptocurrency wallet management and cryptographic transaction signing. This utility streamlines address generation, balance verification, and secure key derivation for EVM-compatible chains.
 
 ## Features
 
-- **Multi-Chain Balance Auditing:** Fetch native and ERC-20 token balances concurrently across Ethereum, Arbitrum, Polygon, and Binance Smart Chain using Web3 RPC nodes.
-- **Batch Token Transfers:** Execute optimized EIP-1559 transactions to distribute native assets or ERC-20 tokens to multiple recipient addresses in a single run.
-- **BIP-39 HD Key Derivation:** Generate and manage hierarchical deterministic wallets securely from standard seed phrases using custom derivation paths.
-- **Allowance Security Scanning:** Identify and revoke stale token approvals across decentralized exchanges to mitigate smart contract exposure.
+*   **HD Wallet Derivation:** Support for BIP-39 mnemonic phrase generation and hierarchical deterministic key derivation.
+*   **Balance Aggregation:** Efficiently fetch native token balances across multiple EVM networks using asynchronous RPC calls.
+*   **Secure Transaction Signing:** Localized signing of raw transactions to ensure private keys never leave your execution environment.
+*   **Gas Estimation:** Real-time fee calculation and optimization based on current network congestion data.
 
 ## Installation
 
-Clone the repository and install the dependencies in a virtual environment:
+Ensure you have Python 3.9+ installed. It is recommended to use a virtual environment.
 
 ```bash
+# Clone the repository
 git clone https://github.com/Developer/wallet-utility-96.git
 cd wallet-utility-96
-python3 -m venv venv
-source venv/bin/activate
-pip install web3 eth-account bip_utils
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-## Quick Start
+## Basic Usage
 
-Initialize the `WalletManager` with an RPC endpoint to audit balances and check contract permissions:
+The following example demonstrates how to generate a new wallet and retrieve its address:
 
 ```python
 from wallet_utility import WalletManager
 
-# Initialize for Ethereum Mainnet
-rpc_url = "https://rpc.ankr.com/eth"
-wm = WalletManager(rpc_node=rpc_url)
+# Initialize the manager
+manager = WalletManager()
 
-# Audit a public wallet address
-target_address = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
+# Generate a new BIP-39 mnemonic and wallet
+wallet = manager.create_wallet()
 
-# Fetch native ETH balance
-balance = wm.get_eth_balance(target_address)
-print(f"Address: {target_address}")
-print(f"ETH Balance: {balance:.4f} ETH")
+print(f"Mnemonic: {wallet.mnemonic}")
+print(f"Address: {wallet.address}")
+```
 
-# Scan active ERC-20 allowances
-active_approvals = wm.get_active_allowances(target_address)
-print(f"Found {len(active_approvals
+## Configuration
+
+Set your RPC endpoints in the `.env` file to enable network-specific interactions:
+
+```bash
+RPC_ENDPOINT_MAINNET=https://eth-mainnet.alchemyapi.io/v2/your-api-key
+RPC_ENDPOINT_POLYGON=https://polygon-rpc.com
+```
+
+## License
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+Distributed under the MIT License. See `LICENSE` for more information.
