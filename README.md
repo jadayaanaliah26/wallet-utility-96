@@ -2,40 +2,46 @@
 
 # wallet-utility-96
 
-`wallet-utility-96` is a lightweight Python toolkit designed for secure Ethereum-compatible wallet generation, multi-chain balance tracking, and offline transaction signing. It provides developers with a streamlined, low-dependency interface to interact with EVM-based chains without the overhead of massive web3 frameworks.
+`wallet-utility-96` is a lightweight Python toolkit designed for automated EVM wallet management, transaction batching, and balance tracking across multiple blockchain networks. It streamlines decentralized interactions by providing secure key derivation, gas optimization, and real-time token allowance audits.
 
 ## Features
 
-* **HD Wallet Derivation:** Generate secure 12 or 24-word BIP-39 mnemonics and derive private keys using standard BIP-44 pathways.
-* **Multi-Chain Auditing:** Fetch native gas and ERC-20 token balances across Ethereum, Arbitrum, Optimism, and Polygon.
-* **Air-Gapped Signing:** Sign raw transactions offline to ensure private keys never expose themselves to online network interfaces.
+- **Multi-Chain Balance Auditing:** Fetch native and ERC-20 token balances concurrently across Ethereum, Arbitrum, Polygon, and Binance Smart Chain using Web3 RPC nodes.
+- **Batch Token Transfers:** Execute optimized EIP-1559 transactions to distribute native assets or ERC-20 tokens to multiple recipient addresses in a single run.
+- **BIP-39 HD Key Derivation:** Generate and manage hierarchical deterministic wallets securely from standard seed phrases using custom derivation paths.
+- **Allowance Security Scanning:** Identify and revoke stale token approvals across decentralized exchanges to mitigate smart contract exposure.
 
 ## Installation
 
-Install the package and its cryptographic dependencies via pip:
+Clone the repository and install the dependencies in a virtual environment:
 
 ```bash
-pip install wallet-utility-96 eth-keys bip-utils requests
+git clone https://github.com/Developer/wallet-utility-96.git
+cd wallet-utility-96
+python3 -m venv venv
+source venv/bin/activate
+pip install web3 eth-account bip_utils
 ```
 
 ## Quick Start
 
-Generate a new wallet and check its balance using a public RPC node:
+Initialize the `WalletManager` with an RPC endpoint to audit balances and check contract permissions:
 
 ```python
-from wallet_utility_96 import WalletManager, ChainAuditor
+from wallet_utility import WalletManager
 
-# Create a secure HD wallet
-wallet = WalletManager.generate_hd_wallet(words=12)
-print(f"Mnemonic: {wallet.mnemonic}")
-print(f"Address: {wallet.address}")
+# Initialize for Ethereum Mainnet
+rpc_url = "https://rpc.ankr.com/eth"
+wm = WalletManager(rpc_node=rpc_url)
 
-# Audit wallet balance on Ethereum Mainnet
-auditor = ChainAuditor(rpc_url="https://cloudflare-eth.com")
-balance_eth = auditor.get_balance(wallet.address)
-print(f"Balance: {balance_eth} ETH")
-```
+# Audit a public wallet address
+target_address = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
 
-## License
+# Fetch native ETH balance
+balance = wm.get_eth_balance(target_address)
+print(f"Address: {target_address}")
+print(f"ETH Balance: {balance:.4f} ETH")
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+# Scan active ERC-20 allowances
+active_approvals = wm.get_active_allowances(target_address)
+print(f"Found {len(active_approvals
