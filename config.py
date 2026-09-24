@@ -1,34 +1,31 @@
 import os
+import json
 from typing import Any, Dict
 
+DEFAULT_CONFIG = {
+    "network": "mainnet",
+    "timeout": 30,
+    "log_level": "INFO",
+    "retry_attempts": 3
+}
+
 class ConfigLoader:
-    DEFAULTS = {
-        "NETWORK": "mainnet",
-        "RPC_URL": "https://api.mainnet.chain",
-        "TIMEOUT": 30,
-        "DEBUG": False
-    }
+    def __init__(self, config_path: str = "config.json"):
+        self.config_path = config_path
+        self.settings = self._load_config()
 
-    def __init__(self, env_prefix: str = "WALLET_"):
-        self.env_prefix = env_prefix
-        self.config: Dict[str, Any] = self.DEFAULTS.copy()
-        self._load_from_env()
+    def _load_config(self) -> Dict[str, Any]:
+        if not os.path.exists(self.config_path):
+            return DEFAULT_CONFIG
+        try:
+            with open(self.config_path, "r") as f:
+                user_config = json.load(f)
+                return {**DEFAULT_CONFIG, **user_config}
+        except (json.JSONDecodeError, IOError):
+            return DEFAULT_CONFIG
 
-    def _load_from_env(self) -> None:
-        for key in self.DEFAULTS:
-            env_val = os.getenv(f"{self.env_prefix}{key}")
-            if env_val is not None:
-                self.config[key] = self._cast_type(key, env_val)
+    def get(self, key: str, default: Any = None) -> Any:
+        return self.settings.get(key, default)
 
-    def _cast_type(self, key: str, value: str) -> Any:
-        default = self.DEFAULTS[key]
-        if isinstance(default, bool):
-            return value.lower() in ("true", "1", "yes")
-        if isinstance(default, int):
-            return int(value)
-        return value
-
-    def get(self, key: str) -> Any:
-        return self.config.get(key)
-
-config = ConfigLoader()
+    def __getitem__(self, key: str) -> Any:
+        return self.settings[key]
