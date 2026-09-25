@@ -1,29 +1,36 @@
-from typing import Final
+from decimal import Decimal
 
-# Network identifiers
-MAINNET_ID: Final[str] = 'mainnet'
-TESTNET_ID: Final[str] = 'testnet'
-
-# Transaction parameters
-DEFAULT_GAS_LIMIT: Final[int] = 21000
-MIN_CONFIRMATIONS: Final[int] = 6
-
-# Asset constants
-ASSET_BTC: Final[str] = 'BTC'
-ASSET_ETH: Final[str] = 'ETH'
-ASSET_USDT: Final[str] = 'USDT'
-
-# Operational timeouts in seconds
-CONNECT_TIMEOUT: Final[float] = 10.0
-READ_TIMEOUT: Final[float] = 30.0
-
-# Supported formats
-SUPPORTED_ADDRESS_FORMATS: Final[list[str]] = ['bech32', 'p2sh', 'legacy']
-
-def get_chain_config(chain_id: str) -> dict[str, str | int]:
-    """Return configuration mapping for a given chain identifier."""
-    configs: dict[str, dict[str, str | int]] = {
-        MAINNET_ID: {'rpc': 'https://mainnet.infura.io', 'chain_id': 1},
-        TESTNET_ID: {'rpc': 'https://sepolia.infura.io', 'chain_id': 11155111}
+CURRENCIES = {
+    "BTC": {
+        "decimals": 8,
+        "min_tx": Decimal("0.0001"),
+        "fee_rate": Decimal("0.00001")
+    },
+    "ETH": {
+        "decimals": 18,
+        "min_tx": Decimal("0.001"),
+        "fee_rate": Decimal("0.00005")
+    },
+    "SOL": {
+        "decimals": 9,
+        "min_tx": Decimal("0.01"),
+        "fee_rate": Decimal("0.000005")
     }
-    return configs.get(chain_id, {})
+}
+
+RPC_TIMEOUT = 30
+MAX_RETRIES = 3
+DEFAULT_NETWORK = "mainnet"
+
+ERROR_CODES = {
+    "INSUFFICIENT_FUNDS": 1001,
+    "INVALID_ADDRESS": 1002,
+    "NETWORK_UNREACHABLE": 1003,
+    "RATE_LIMIT_EXCEEDED": 1004
+}
+
+BLOCKCHAIN_EXPLORERS = {
+    "BTC": "https://blockstream.info",
+    "ETH": "https://etherscan.io",
+    "SOL": "https://explorer.solana.com"
+}
