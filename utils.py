@@ -1,21 +1,24 @@
-import time
-import functools
-from typing import Callable, Any, Type
+import hashlib
+from typing import Optional
 
-class NetworkError(Exception):
-    """Base exception for network operations."""
+def generate_address(public_key: bytes) -> str:
+    """Generate a hex-encoded SHA-256 hash address from public key."""
+    return hashlib.sha256(public_key).hexdigest()
 
-def retry(exceptions: tuple[Type[Exception], ...], retries: int = 3, delay: float = 1.0) -> Callable:
-    def decorator(func: Callable) -> Callable:
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            last_exception = None
-            for attempt in range(retries):
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as e:
-                    last_exception = e
-                    time.sleep(delay * (2 ** attempt))
-            raise last_exception
-        return wrapper
-    return decorator
+def validate_checksum(data: bytes, checksum: str) -> bool:
+    """Verify data integrity against a provided hex checksum."""
+    return hashlib.sha256(data).hexdigest() == checksum
+
+def format_satoshi(amount: int) -> float:
+    """Convert satoshi integer to decimal bitcoin unit."""
+    return amount / 100_000_000
+
+def mask_address(address: str, visible: int = 4) -> str:
+    """Obfuscate address for secure log display."""
+    if len(address) <= visible * 2:
+        return address
+    return f"{address[:visible]}...{address[-visible:]}"
+
+def parse_fee_rate(rate: Optional[str]) -> int:
+    """Cast fee rate string to integer base units."""
+    return int(rate) if rate and rate.isdigit() else 1000
