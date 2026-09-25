@@ -1,31 +1,32 @@
 import os
-import json
 from typing import Any, Dict
 
-DEFAULT_CONFIG = {
-    "network": "mainnet",
-    "timeout": 30,
-    "log_level": "INFO",
-    "retry_attempts": 3
-}
+def get_env(key: str, default: Any = None) -> Any:
+    return os.getenv(key, default)
 
-class ConfigLoader:
-    def __init__(self, config_path: str = "config.json"):
-        self.config_path = config_path
-        self.settings = self._load_config()
+class Config:
+    DEFAULT_CONFIG = {
+        "RPC_URL": "https://mainnet.infura.io/v3/",
+        "CHAIN_ID": 1,
+        "TIMEOUT": 30,
+        "RETRY_ATTEMPTS": 3
+    }
 
-    def _load_config(self) -> Dict[str, Any]:
-        if not os.path.exists(self.config_path):
-            return DEFAULT_CONFIG
-        try:
-            with open(self.config_path, "r") as f:
-                user_config = json.load(f)
-                return {**DEFAULT_CONFIG, **user_config}
-        except (json.JSONDecodeError, IOError):
-            return DEFAULT_CONFIG
+    def __init__(self) -> None:
+        self._config = self.DEFAULT_CONFIG.copy()
+        self._load_env()
 
-    def get(self, key: str, default: Any = None) -> Any:
-        return self.settings.get(key, default)
+    def _load_env(self) -> None:
+        for key in self._config:
+            val = os.getenv(key)
+            if val is not None:
+                self._config[key] = type(self._config[key])(val)
 
-    def __getitem__(self, key: str) -> Any:
-        return self.settings[key]
+    def get(self, key: str) -> Any:
+        return self._config.get(key)
+
+    @property
+    def settings(self) -> Dict[str, Any]:
+        return self._config.copy()
+
+config = Config()
