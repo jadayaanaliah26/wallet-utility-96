@@ -1,40 +1,39 @@
-import hashlib
-import secrets
+from decimal import Decimal
 from typing import Union
 
 
-def wei_to_ether(wei: int) -> float:
-    return wei / 10**18
+def parse_units(amount: Union[int, float, str], decimals: int = 18) -> int:
+    if isinstance(amount, (int, float)):
+        amount = str(amount)
+    dec_amount = Decimal(amount)
+    multiplier = Decimal(10**decimals)
+    return int(dec_amount * multiplier)
 
 
-def ether_to_wei(ether: Union[float, int]) -> int:
-    return int(ether * 10**18)
+def format_units(amount: int, decimals: int = 18) -> str:
+    dec_amount = Decimal(amount)
+    divisor = Decimal(10**decimals)
+    res = dec_amount / divisor
+    return f"{res:f}"
 
 
-def satoshi_to_btc(satoshi: int) -> float:
-    return satoshi / 10**8
+def satoshi_to_btc(satoshis: int) -> str:
+    return format_units(satoshis, decimals=8)
 
 
-def btc_to_satoshi(btc: Union[float, int]) -> int:
-    return int(btc * 10**8)
+def btc_to_satoshi(btc: Union[int, float, str]) -> int:
+    return parse_units(btc, decimals=8)
 
 
-def generate_private_key() -> str:
-    return secrets.token_hex(32)
+def wei_to_eth(wei: int) -> str:
+    return format_units(wei, decimals=18)
 
 
-def double_sha256(data: bytes) -> bytes:
-    return hashlib.sha256(hashlib.sha256(data).digest()).digest()
+def eth_to_wei(eth: Union[int, float, str]) -> int:
+    return parse_units(eth, decimals=18)
 
 
-def is_valid_hex_address(address: str, length: int = 40) -> bool:
-    clean_addr = address.lower()
-    if clean_addr.startswith("0x"):
-        clean_addr = clean_addr[2:]
-    if len(clean_addr) != length:
-        return False
-    try:
-        int(clean_addr, 16)
-        return True
-    except ValueError:
-        return False
+def truncate_address(address: str, leading: int = 6, trailing: int = 4) -> str:
+    if len(address) <= leading + trailing:
+        return address
+    return f"{address[:leading]}...{address[-trailing:]}"
