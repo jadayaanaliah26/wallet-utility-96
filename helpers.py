@@ -1,39 +1,59 @@
-from decimal import Decimal
-from typing import Union
+import re
 
 
-def parse_units(amount: Union[int, float, str], decimals: int = 18) -> int:
-    if isinstance(amount, (int, float)):
-        amount = str(amount)
-    dec_amount = Decimal(amount)
-    multiplier = Decimal(10**decimals)
-    return int(dec_amount * multiplier)
+def wei_to_ether(wei: int) -> float:
+    """Convert Wei to Ether.
+
+    Args:
+        wei: The amount in Wei to convert.
+
+    Returns:
+        The equivalent amount in Ether.
+    """
+    if wei < 0:
+        raise ValueError("Wei amount cannot be negative")
+    return wei / 10**18
 
 
-def format_units(amount: int, decimals: int = 18) -> str:
-    dec_amount = Decimal(amount)
-    divisor = Decimal(10**decimals)
-    res = dec_amount / divisor
-    return f"{res:f}"
+def ether_to_wei(ether: float) -> int:
+    """Convert Ether to Wei.
+
+    Args:
+        ether: The amount in Ether to convert.
+
+    Returns:
+        The equivalent amount in Wei.
+    """
+    if ether < 0:
+        raise ValueError("Ether amount cannot be negative")
+    return int(ether * 10**18)
 
 
-def satoshi_to_btc(satoshis: int) -> str:
-    return format_units(satoshis, decimals=8)
+def is_valid_hex_address(address: str) -> bool:
+    """Validate if the string is a standard hexadecimal address format.
+
+    Args:
+        address: The string address to validate.
+
+    Returns:
+        True if valid hex address, False otherwise.
+    """
+    if not isinstance(address, str):
+        return False
+    return bool(re.match(r"^0x[a-fA-F0-9]{40}$", address))
 
 
-def btc_to_satoshi(btc: Union[int, float, str]) -> int:
-    return parse_units(btc, decimals=8)
+def truncate_hash(tx_hash: str, start_chars: int = 6, end_chars: int = 4) -> str:
+    """Truncate a transaction hash for display purposes.
 
+    Args:
+        tx_hash: The full hash string.
+        start_chars: Number of characters to keep at the start.
+        end_chars: Number of characters to keep at the end.
 
-def wei_to_eth(wei: int) -> str:
-    return format_units(wei, decimals=18)
-
-
-def eth_to_wei(eth: Union[int, float, str]) -> int:
-    return parse_units(eth, decimals=18)
-
-
-def truncate_address(address: str, leading: int = 6, trailing: int = 4) -> str:
-    if len(address) <= leading + trailing:
-        return address
-    return f"{address[:leading]}...{address[-trailing:]}"
+    Returns:
+        The truncated hash string.
+    """
+    if not tx_hash.startswith("0x") or len(tx_hash) <= (start_chars + end_chars + 2):
+        return tx_hash
+    return f"{tx_hash[:start_chars]}...{tx_hash[-end_chars:]}"
