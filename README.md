@@ -1,17 +1,17 @@
 # wallet-utility-96
 
-`wallet-utility-96` is a lightweight, command-line interface tool designed to streamline hierarchical deterministic (HD) wallet operations. It provides a secure environment for managing private keys, signing transactions, and batch-processing cryptocurrency addresses.
+`wallet-utility-96` is a high-performance Python toolkit designed for secure management and batch processing of cryptocurrency wallets. It provides developers with a streamlined interface for key generation, address derivation, and automated balance reconciliation across multiple EVM-compatible chains.
 
-## Features
+### Key Features
 
-*   **BIP-39 Mnemonic Generation:** Securely generate and derive HD wallet keys using standard entropy sources.
-*   **Multi-Chain Support:** Native compatibility with EVM-based networks and Bitcoin-style address derivation.
-*   **Secure Offline Signing:** Sign raw transactions locally to ensure sensitive private keys never touch the network.
-*   **CSV Batch Processing:** Effortlessly generate or validate hundreds of addresses from a single master seed in seconds.
+*   **BIP-39 Implementation:** Secure generation of 12/24-word recovery phrases with entropy validation.
+*   **Multi-Chain Support:** Native derivation paths for Ethereum, Polygon, BSC, and Arbitrum.
+*   **Balance Aggregation:** Optimized asynchronous fetching of token balances to bypass rate-limiting during batch lookups.
+*   **Keystore Encryption:** AES-256-GCM encryption for local private key storage and handling.
 
-## Installation
+### Installation
 
-Ensure you have Python 3.8+ installed. Clone the repository and install the required dependencies:
+Requires Python 3.9 or higher. Clone the repository and install dependencies via pip:
 
 ```bash
 git clone https://github.com/Developer/wallet-utility-96.git
@@ -19,24 +19,30 @@ cd wallet-utility-96
 pip install -r requirements.txt
 ```
 
-## Usage
+### Usage
 
-Generate a new wallet and derive the first five addresses on the Ethereum derivation path:
+This snippet demonstrates how to generate a new wallet and derive the primary address:
 
-```bash
-python main.py generate --path "m/44'/60'/0'/0" --count 5
+```python
+from wallet_utility import WalletManager
+
+# Initialize manager
+manager = WalletManager()
+
+# Generate new mnemonic and derive keys
+wallet = manager.create_new_wallet()
+print(f"Address: {wallet.address}")
+print(f"Private Key: {wallet.private_key}")
+
+# Check balance on Ethereum Mainnet
+balance = manager.get_balance(wallet.address, chain='eth')
+print(f"Current Balance: {balance} ETH")
 ```
 
-To sign a transaction using a stored mnemonic file:
+### Security Disclaimer
+This utility is intended for developer environments. Always ensure private keys are stored in encrypted environments and never commit sensitive keys to version control systems.
 
-```bash
-python main.py sign --input tx_data.json --key-file .secret_mnemonic
-```
-
-*Note: Always handle your mnemonic phrases with caution. Never share your seed or store it in plain text on unencrypted devices.*
-
-## License
-
+### License
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Distributed under the MIT License. See `LICENSE` for more information.
