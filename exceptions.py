@@ -1,23 +1,43 @@
 class WalletError(Exception):
-    """Base exception for wallet-utility-96"""
+    """Base exception for all wallet operations."""
+    pass
+
+
+class InvalidAddressError(WalletError):
+    """Raised when a cryptocurrency address is malformed or invalid."""
+
+    def __init__(self, address: str, network: str = "mainnet"):
+        self.address = address
+        self.network = network
+        super().__init__(f"Invalid {network} address: {address}")
+
 
 class InsufficientFundsError(WalletError):
-    """Raised when transaction exceeds balance"""
+    """Raised when the wallet has insufficient balance for a transaction."""
 
-class ConnectionTimeoutError(WalletError):
-    """Raised when network requests time out"""
+    def __init__(self, required: float, available: float, asset: str):
+        self.required = required
+        self.available = available
+        self.asset = asset
+        super().__init__(
+            f"Insufficient funds: required {required} {asset}, "
+            f"but only have {available} {asset}"
+        )
 
-class ValidationError(WalletError):
-    """Raised when input parameters are invalid"""
 
-class KeyManagementError(WalletError):
-    """Raised during encryption or signing failures"""
+class TransactionSigningError(WalletError):
+    """Raised when a transaction fails to be cryptographically signed."""
 
-class ProtocolError(WalletError):
-    """Raised when node communication fails"""
+    def __init__(self, details: str):
+        super().__init__(f"Transaction signing failed: {details}")
 
-class RateLimitError(WalletError):
-    """Raised when API request limits exceeded"""
 
-class TransactionError(WalletError):
-    """Raised when blockchain broadcast fails"""
+class NetworkProviderError(WalletError):
+    """Raised when an external blockchain RPC or API provider fails."""
+
+    def __init__(self, provider: str, status_code: int, message: str):
+        self.provider = provider
+        self.status_code = status_code
+        super().__init__(
+            f"Provider '{provider}' failed with status {status_code}: {message}"
+        )
