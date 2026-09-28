@@ -1,25 +1,30 @@
 import re
+from typing import Any
 
-def validate_address(address: str) -> bool:
-    return bool(re.match(r'^0x[a-fA-F0-9]{40}$', address))
+class WalletValidationError(Exception):
+    pass
 
-def validate_amount(amount: str) -> bool:
+def validate_address(address: str) -> None:
+    if not isinstance(address, str):
+        raise WalletValidationError("Address must be a string")
+    if not re.fullmatch(r'0x[a-fA-F0-9]{40}', address):
+        raise WalletValidationError("Invalid ethereum address format")
+
+def validate_amount(amount: Any) -> None:
     try:
         value = float(amount)
-        return value > 0
+        if value <= 0:
+            raise ValueError
     except (ValueError, TypeError):
-        return False
+        raise WalletValidationError("Amount must be a positive number")
 
-def process_transaction(data: dict) -> bool:
-    if not validate_address(data.get('to', '')):
-        return False
-    if not validate_amount(str(data.get('amount', 0))):
-        return False
-    return True
-
-def input_validation_loop(transactions: list) -> list:
-    valid_txs = []
-    for tx in transactions:
-        if process_transaction(tx):
-            valid_txs.append(tx)
-    return valid_txs
+def validate_transaction_payload(payload: dict) -> None:
+    required_fields = {"address", "amount", "token"}
+    if not isinstance(payload, dict):
+        raise WalletValidationError("Payload must be a dictionary")
+    if not required_fields.issubset(payload.keys()):
+        missing = required_fields - payload.keys()
+        raise WalletValidationError(f"Missing fields: {missing}")
+    
+    validate_address(payload["address"])
+    validate_amount(payload["amount"])
