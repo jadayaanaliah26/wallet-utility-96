@@ -1,24 +1,32 @@
+from typing import Dict, Any, Optional
 import hashlib
-from typing import Optional
+import hmac
 
-def generate_address(public_key: bytes) -> str:
-    """Generate a hex-encoded SHA-256 hash address from public key."""
-    return hashlib.sha256(public_key).hexdigest()
+def validate_address(address: str, chain: str) -> bool:
+    if not address or len(address) < 26:
+        return False
+    return address.isalnum()
 
-def validate_checksum(data: bytes, checksum: str) -> bool:
-    """Verify data integrity against a provided hex checksum."""
-    return hashlib.sha256(data).hexdigest() == checksum
+def calculate_checksum(data: str, secret: str) -> str:
+    return hmac.new(
+        secret.encode(),
+        data.encode(),
+        hashlib.sha256
+    ).hexdigest()
 
-def format_satoshi(amount: int) -> float:
-    """Convert satoshi integer to decimal bitcoin unit."""
-    return amount / 100_000_000
+def format_amount(value: float, precision: int = 8) -> float:
+    return round(value, precision)
 
-def mask_address(address: str, visible: int = 4) -> str:
-    """Obfuscate address for secure log display."""
-    if len(address) <= visible * 2:
-        return address
-    return f"{address[:visible]}...{address[-visible:]}"
+def sanitize_transaction(tx_data: Dict[str, Any]) -> Dict[str, Any]:
+    required = {'sender', 'receiver', 'amount'}
+    if not all(key in tx_data for key in required):
+        raise ValueError('Missing transaction fields')
+    return {
+        'sender': str(tx_data['sender']),
+        'receiver': str(tx_data['receiver']),
+        'amount': float(tx_data['amount'])
+    }
 
-def parse_fee_rate(rate: Optional[str]) -> int:
-    """Cast fee rate string to integer base units."""
-    return int(rate) if rate and rate.isdigit() else 1000
+def derive_asset_id(symbol: str, chain_id: int) -> str:
+    payload = f"{symbol.upper()}:{chain_id}"
+    return hashlib.sha256(payload.encode()).hexdigest()[:16]
