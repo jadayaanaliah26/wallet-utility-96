@@ -1,34 +1,30 @@
-import re
+from typing import Union
+from decimal import Decimal, ROUND_HALF_UP
 
-ADDRESS_PATTERN = re.compile(r'^(0x)?[0-9a-fA-F]{40}$')
 
-class ValidationError(Exception):
-    pass
+def format_amount(amount: Union[str, float, Decimal], decimals: int = 8) -> Decimal:
+    return Decimal(str(amount)).quantize(Decimal(f'1.{"0" * decimals}'), rounding=ROUND_HALF_UP)
 
-def validate_transaction(data: dict) -> None:
-    if not isinstance(data, dict):
-        raise ValidationError('payload must be a dictionary')
 
-    address = data.get('address')
-    amount = data.get('amount')
+def validate_address(address: str) -> bool:
+    if not isinstance(address, str):
+        return False
+    return address.startswith('0x') and len(address) == 42
 
-    if not address or not ADDRESS_PATTERN.match(str(address)):
-        raise ValidationError(f'invalid wallet address: {address}')
 
-    if not isinstance(amount, (int, float)) or amount <= 0:
-        raise ValidationError(f'invalid transaction amount: {amount}')
+def satoshis_to_btc(sats: int) -> Decimal:
+    return Decimal(sats) / Decimal('100000000')
 
-def process_loop(queue: list) -> None:
-    for item in queue:
-        try:
-            validate_transaction(item)
-            print(f'processing {item.get("address")}')
-        except ValidationError as e:
-            print(f'skip invalid item: {e}')
 
-if __name__ == '__main__':
-    mock_queue = [
-        {'address': '0x71C7656EC7ab88b098defB751B7401B5f6d8976F', 'amount': 0.5},
-        {'address': 'invalid', 'amount': 1.2}
-    ]
-    process_loop(mock_queue)
+def btc_to_satoshis(btc: Union[str, float, Decimal]) -> int:
+    return int(Decimal(str(btc)) * Decimal('100000000'))
+
+
+def mask_address(address: str) -> str:
+    if len(address) < 10:
+        return address
+    return f"{address[:6]}...{address[-4:]}"
+
+
+def calculate_fee(amount: Decimal, rate: Decimal) -> Decimal:
+    return (amount * rate).quantize(Decimal('0.00000001'), rounding=ROUND_HALF_UP)
