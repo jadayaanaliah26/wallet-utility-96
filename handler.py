@@ -1,45 +1,29 @@
+import time
+import functools
 import logging
 from typing import Callable, Any
 
-logger = logging.getLogger("wallet_utility.handler")
+logger = logging.getLogger(__name__)
 
+def retry(max_attempts: int = 3, delay: float = 1.0, exceptions: tuple = (Exception,)): 
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            attempts = 0
+            while attempts < max_attempts:
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    attempts += 1
+                    if attempts >= max_attempts:
+                        logger.error(f'operation failed after {max_attempts} attempts: {e}')
+                        raise
+                    time.sleep(delay)
+            return None
+        return wrapper
+    return decorator
 
-class WalletError(Exception):
-    pass
-
-
-class InsufficientFundsError(WalletError):
-    pass
-
-
-class NetworkTimeoutError(WalletError):
-    pass
-
-
-class InvalidTransactionError(WalletError):
-    pass
-
-
-def execute_transaction_safely(
-    func: Callable[..., Any], *args: Any, max_retries: int = 3, **kwargs: Any
-) -> Any:
-    for attempt in range(max_retries):
-        try:
-            return func(*args, **kwargs)
-        except (ConnectionError, TimeoutError) as err:
-            if attempt == max_retries - 1:
-                raise NetworkTimeoutError(
-                    "Node connection failed after maximum retries"
-                ) from err
-            logger.warning("Retrying connection following network error...")
-        except ValueError as err:
-            err_msg = str(err).lower()
-            if "insufficient" in err_msg or "funds" in err_msg:
-                raise InsufficientFundsError(
-                    "Insufficient balance to cover gas or value"
-                ) from err
-            raise InvalidTransactionError(
-                f"Malformed transaction parameter: {err}"
-            ) from err
-        except Exception as err:
-            raise WalletError(f"Unexpected wallet execution failure: {err}") from err
+@retry(max_attempts=3, delay=2.0)
+def fetch_wallet_balance(address: str) -> float:
+    # implementation logic here
+    return 0.0
