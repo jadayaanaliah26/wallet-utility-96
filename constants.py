@@ -1,36 +1,24 @@
-from decimal import Decimal
+from enum import Enum, unique
 
-CURRENCIES = {
-    "BTC": {
-        "decimals": 8,
-        "min_tx": Decimal("0.0001"),
-        "fee_rate": Decimal("0.00001")
-    },
-    "ETH": {
-        "decimals": 18,
-        "min_tx": Decimal("0.001"),
-        "fee_rate": Decimal("0.00005")
-    },
-    "SOL": {
-        "decimals": 9,
-        "min_tx": Decimal("0.01"),
-        "fee_rate": Decimal("0.000005")
-    }
-}
+@unique
+class ErrorCode(Enum):
+    INVALID_ADDRESS = "ERR_001"
+    INSUFFICIENT_FUNDS = "ERR_002"
+    NETWORK_TIMEOUT = "ERR_003"
+    API_LIMIT_EXCEEDED = "ERR_004"
+    TRANSACTION_FAILED = "ERR_005"
 
-RPC_TIMEOUT = 30
-MAX_RETRIES = 3
-DEFAULT_NETWORK = "mainnet"
+MAX_RETRY_ATTEMPTS = 3
+DEFAULT_TIMEOUT_SECONDS = 30
+SUPPORTED_NETWORKS = {"mainnet", "testnet", "devnet"}
 
-ERROR_CODES = {
-    "INSUFFICIENT_FUNDS": 1001,
-    "INVALID_ADDRESS": 1002,
-    "NETWORK_UNREACHABLE": 1003,
-    "RATE_LIMIT_EXCEEDED": 1004
-}
+MIN_TX_AMOUNT = 1e-18
+MAX_TX_AMOUNT = 1e12
 
-BLOCKCHAIN_EXPLORERS = {
-    "BTC": "https://blockstream.info",
-    "ETH": "https://etherscan.io",
-    "SOL": "https://explorer.solana.com"
+ERROR_MESSAGES = {
+    ErrorCode.INVALID_ADDRESS: "The provided wallet address format is invalid",
+    ErrorCode.INSUFFICIENT_FUNDS: "Account balance is lower than requested amount",
+    ErrorCode.NETWORK_TIMEOUT: "Node connection timed out during broadcast",
+    ErrorCode.API_LIMIT_EXCEEDED: "Rate limit exceeded for blockchain node RPC",
+    ErrorCode.TRANSACTION_FAILED: "Transaction validation failed at the protocol layer"
 }
