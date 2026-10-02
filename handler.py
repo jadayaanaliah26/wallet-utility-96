@@ -1,29 +1,39 @@
-import time
-import functools
-import logging
-from typing import Callable, Any
+from typing import Dict, Any, Optional
 
-logger = logging.getLogger(__name__)
+class WalletHandler:
+    """Handles crypto wallet balance and transaction validation."""
 
-def retry(max_attempts: int = 3, delay: float = 1.0, exceptions: tuple = (Exception,)): 
-    def decorator(func: Callable) -> Callable:
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            attempts = 0
-            while attempts < max_attempts:
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as e:
-                    attempts += 1
-                    if attempts >= max_attempts:
-                        logger.error(f'operation failed after {max_attempts} attempts: {e}')
-                        raise
-                    time.sleep(delay)
+    def __init__(self, currency: str) -> None:
+        self.currency: str = currency
+        self.cache: Dict[str, float] = {}
+
+    def get_balance(self, address: str) -> float:
+        """Retrieve balance for a specific wallet address."""
+        return self.cache.get(address, 0.0)
+
+    def update_balance(self, address: str, amount: float) -> None:
+        """Update local balance cache for the given address."""
+        if amount < 0:
+            raise ValueError("Balance cannot be negative")
+        self.cache[address] = amount
+
+    def validate_address(self, address: str) -> bool:
+        """Verify address format matches currency requirements."""
+        if self.currency == "BTC":
+            return address.startswith("1") or address.startswith("3")
+        if self.currency == "ETH":
+            return address.startswith("0x") and len(address) == 42
+        return False
+
+    def process_transaction(self, sender: str, receiver: str, amount: float) -> Optional[Dict[str, Any]]:
+        """Execute validated transaction between wallets."""
+        if not self.validate_address(sender) or not self.validate_address(receiver):
             return None
-        return wrapper
-    return decorator
-
-@retry(max_attempts=3, delay=2.0)
-def fetch_wallet_balance(address: str) -> float:
-    # implementation logic here
-    return 0.0
+        
+        sender_balance = self.get_balance(sender)
+        if sender_balance < amount:
+            return None
+            
+        self.update_balance(sender, sender_balance - amount)
+        self.update_balance(receiver, self.get_balance(receiver) + amount)
+        return {"status": "success", "amount": amount}
