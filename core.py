@@ -1,29 +1,37 @@
 import hashlib
-from concurrent.futures import ThreadPoolExecutor
-from functools import lru_cache
-from typing import Dict, List, Union
+import hmac
+from typing import Dict, Optional
 
+class WalletCore:
+    def __init__(self, api_key: str, api_secret: str) -> None:
+        self.api_key = api_key
+        self.api_secret = api_secret.encode('utf-8')
 
-class TransactionProcessor:
-    def __init__(self, max_workers: int = 4) -> None:
-        self.max_workers = max_workers
+    def generate_signature(self, payload: str) -> str:
+        return hmac.new(
+            self.api_secret,
+            payload.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+
+    def format_transaction(self, tx_id: str, amount: float, currency: str) -> Dict:
+        return {
+            "id": tx_id,
+            "amount": float(amount),
+            "currency": currency.upper(),
+            "verified": True
+        }
+
+    def validate_address(self, address: str, network: str) -> bool:
+        if network == "ethereum":
+            return address.startswith("0x") and len(address) == 42
+        if network == "bitcoin":
+            return len(address) >= 26 and len(address) <= 35
+        return False
 
     @staticmethod
-    @lru_cache(maxsize=4096)
-    def hash_payload(payload: bytes) -> str:
-        first_hash = hashlib.sha256(payload).digest()
-        return hashlib.sha256(first_hash).hexdigest()
-
-    def serialize_tx(self, tx: Dict[str, Union[str, int]]) -> bytes:
-        return f"{tx['from']}:{tx['to']}:{tx['value']}:{tx['nonce']}".encode("utf-8")
-
-    def process_single(self, tx: Dict[str, Union[str, int]]) -> str:
-        serialized = self.serialize_tx(tx)
-        return self.hash_payload(serialized)
-
-    def process_batch(self, transactions: List[Dict[str, Union[str, int]]]) -> List[str]:
-        if len(transactions) < 10:
-            return [self.process_single(tx) for tx in transactions]
-
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            return list(executor.map(self.process_single, transactions))
+    def sanitize_amount(value: any) -> float:
+        try:
+            return round(float(value), 8)
+        except (ValueError, TypeError):
+            return 0.0
