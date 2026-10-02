@@ -1,32 +1,35 @@
-from typing import Dict, Any, Optional
-import hashlib
-import hmac
+import time
+import logging
+from functools import wraps
+from typing import Callable, Any, Tuple, Type
 
-def validate_address(address: str, chain: str) -> bool:
-    if not address or len(address) < 26:
-        return False
-    return address.isalnum()
+logger = logging.getLogger("wallet_utility.utils")
 
-def calculate_checksum(data: str, secret: str) -> str:
-    return hmac.new(
-        secret.encode(),
-        data.encode(),
-        hashlib.sha256
-    ).hexdigest()
 
-def format_amount(value: float, precision: int = 8) -> float:
-    return round(value, precision)
-
-def sanitize_transaction(tx_data: Dict[str, Any]) -> Dict[str, Any]:
-    required = {'sender', 'receiver', 'amount'}
-    if not all(key in tx_data for key in required):
-        raise ValueError('Missing transaction fields')
-    return {
-        'sender': str(tx_data['sender']),
-        'receiver': str(tx_data['receiver']),
-        'amount': float(tx_data['amount'])
-    }
-
-def derive_asset_id(symbol: str, chain_id: int) -> str:
-    payload = f"{symbol.upper()}:{chain_id}"
-    return hashlib.sha256(payload.encode()).hexdigest()[:16]
+def retry_on_failure(
+    retries: int = 3,
+    delay: float = 1.0,
+    backoff: float = 2.0,
+    exceptions: Tuple[Type[BaseException], ...] = (Exception,),
+) -> Callable:
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            current_delay = delay
+            for attempt in range(1, retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    if attempt == retries:
+                        logger.error(
+                            f"Failed {func.__qualname__} after {retries} attempts: {e}"
+                        )
+                        raise
+                    logger.warning(
+                        f"Retrying {func.__qualname__} in {current_delay:.2f}s... "
+                        f"(Attempt {attempt}/{retries}) due to: {e}"
+                    )
+                    time.sleep(current_delay)
+                    current_delay *= backoff
+        return wrapper
+    return decorator
