@@ -1,39 +1,35 @@
+import logging
 from typing import Dict, Any, Optional
+from dataclasses import dataclass
+
+@dataclass
+class WalletSession:
+    address: str
+    network: str
+    active: bool = True
 
 class WalletHandler:
-    """Handles crypto wallet balance and transaction validation."""
+    def __init__(self, logger: logging.Logger):
+        self.logger = logger
+        self.sessions: Dict[str, WalletSession] = {}
 
-    def __init__(self, currency: str) -> None:
-        self.currency: str = currency
-        self.cache: Dict[str, float] = {}
+    def create_session(self, address: str, network: str = 'mainnet') -> str:
+        if not address.startswith('0x'):
+            raise ValueError('Invalid address format')
+        session_id = f'sess_{address[-8:]}'
+        self.sessions[session_id] = WalletSession(address, network)
+        self.logger.info(f'session created for {address}')
+        return session_id
 
-    def get_balance(self, address: str) -> float:
-        """Retrieve balance for a specific wallet address."""
-        return self.cache.get(address, 0.0)
-
-    def update_balance(self, address: str, amount: float) -> None:
-        """Update local balance cache for the given address."""
-        if amount < 0:
-            raise ValueError("Balance cannot be negative")
-        self.cache[address] = amount
-
-    def validate_address(self, address: str) -> bool:
-        """Verify address format matches currency requirements."""
-        if self.currency == "BTC":
-            return address.startswith("1") or address.startswith("3")
-        if self.currency == "ETH":
-            return address.startswith("0x") and len(address) == 42
+    def terminate_session(self, session_id: str) -> bool:
+        if session_id in self.sessions:
+            del self.sessions[session_id]
+            self.logger.info(f'terminated session {session_id}')
+            return True
         return False
 
-    def process_transaction(self, sender: str, receiver: str, amount: float) -> Optional[Dict[str, Any]]:
-        """Execute validated transaction between wallets."""
-        if not self.validate_address(sender) or not self.validate_address(receiver):
+    def get_status(self, session_id: str) -> Optional[Dict[str, Any]]:
+        session = self.sessions.get(session_id)
+        if not session:
             return None
-        
-        sender_balance = self.get_balance(sender)
-        if sender_balance < amount:
-            return None
-            
-        self.update_balance(sender, sender_balance - amount)
-        self.update_balance(receiver, self.get_balance(receiver) + amount)
-        return {"status": "success", "amount": amount}
+        return {'address': session.address, 'network': session.network}
