@@ -1,35 +1,26 @@
-import time
-import logging
-from functools import wraps
-from typing import Callable, Any, Tuple, Type
+import functools
+from typing import Callable, Any, Dict
 
-logger = logging.getLogger("wallet_utility.utils")
+CACHE: Dict[str, Any] = {}
 
-
-def retry_on_failure(
-    retries: int = 3,
-    delay: float = 1.0,
-    backoff: float = 2.0,
-    exceptions: Tuple[Type[BaseException], ...] = (Exception,),
-) -> Callable:
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            current_delay = delay
-            for attempt in range(1, retries + 1):
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as e:
-                    if attempt == retries:
-                        logger.error(
-                            f"Failed {func.__qualname__} after {retries} attempts: {e}"
-                        )
-                        raise
-                    logger.warning(
-                        f"Retrying {func.__qualname__} in {current_delay:.2f}s... "
-                        f"(Attempt {attempt}/{retries}) due to: {e}"
-                    )
-                    time.sleep(current_delay)
-                    current_delay *= backoff
+class CryptoCache:
+    @staticmethod
+    def memoize(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            key = f"{func.__name__}:{args}:{frozenset(kwargs.items())}"
+            if key not in CACHE:
+                CACHE[key] = func(*args, **kwargs)
+            return CACHE[key]
         return wrapper
-    return decorator
+
+@CryptoCache.memoize
+def derive_address_checksum(pubkey: bytes) -> str:
+    import hashlib
+    return hashlib.sha256(pubkey).hexdigest()[:8]
+
+def batch_process_signatures(signatures: list[bytes]) -> list[str]:
+    return [derive_address_checksum(s) for s in signatures]
+
+def clear_cache() -> None:
+    CACHE.clear()
