@@ -1,26 +1,18 @@
-import functools
-from typing import Callable, Any, Dict
+import time
+from functools import wraps
+from typing import Callable, Any
 
-CACHE: Dict[str, Any] = {}
-
-class CryptoCache:
-    @staticmethod
-    def memoize(func: Callable) -> Callable:
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            key = f"{func.__name__}:{args}:{frozenset(kwargs.items())}"
-            if key not in CACHE:
-                CACHE[key] = func(*args, **kwargs)
-            return CACHE[key]
+def retry_network_call(max_retries: int = 3, delay: float = 1.0):
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            last_exception = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except (ConnectionError, TimeoutError) as e:
+                    last_exception = e
+                    time.sleep(delay * (2 ** attempt))
+            raise last_exception
         return wrapper
-
-@CryptoCache.memoize
-def derive_address_checksum(pubkey: bytes) -> str:
-    import hashlib
-    return hashlib.sha256(pubkey).hexdigest()[:8]
-
-def batch_process_signatures(signatures: list[bytes]) -> list[str]:
-    return [derive_address_checksum(s) for s in signatures]
-
-def clear_cache() -> None:
-    CACHE.clear()
+    return decorator
