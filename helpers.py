@@ -1,30 +1,31 @@
-from typing import Union
-from decimal import Decimal, ROUND_HALF_UP
+import hashlib
+import secrets
+from typing import Optional
 
+def generate_wallet_address(public_key: bytes) -> str:
+    sha256_hash = hashlib.sha256(public_key).digest()
+    ripemd160 = hashlib.new('ripemd160', sha256_hash).digest()
+    return ripemd160.hex()
 
-def format_amount(amount: Union[str, float, Decimal], decimals: int = 8) -> Decimal:
-    return Decimal(str(amount)).quantize(Decimal(f'1.{"0" * decimals}'), rounding=ROUND_HALF_UP)
-
-
-def validate_address(address: str) -> bool:
-    if not isinstance(address, str):
+def validate_checksum(address: str) -> bool:
+    if len(address) != 40:
         return False
-    return address.startswith('0x') and len(address) == 42
+    try:
+        int(address, 16)
+        return True
+    except ValueError:
+        return False
 
+def create_secure_nonce(length: int = 32) -> str:
+    return secrets.token_hex(length)
 
-def satoshis_to_btc(sats: int) -> Decimal:
-    return Decimal(sats) / Decimal('100000000')
+def format_satoshi_to_btc(satoshi: int) -> float:
+    return float(satoshi / 100_000_000)
 
+def format_btc_to_satoshi(btc: float) -> int:
+    return int(btc * 100_000_000)
 
-def btc_to_satoshis(btc: Union[str, float, Decimal]) -> int:
-    return int(Decimal(str(btc)) * Decimal('100000000'))
-
-
-def mask_address(address: str) -> str:
-    if len(address) < 10:
-        return address
-    return f"{address[:6]}...{address[-4:]}"
-
-
-def calculate_fee(amount: Decimal, rate: Decimal) -> Decimal:
-    return (amount * rate).quantize(Decimal('0.00000001'), rounding=ROUND_HALF_UP)
+def sign_transaction_payload(payload: str, private_key: str) -> str:
+    message = payload.encode()
+    signature = hashlib.sha256(message + private_key.encode()).hexdigest()
+    return signature
