@@ -1,37 +1,25 @@
 import hashlib
-import hmac
-from typing import Dict, Optional
+from decimal import Decimal
+from typing import Union
 
-class WalletCore:
-    def __init__(self, api_key: str, api_secret: str) -> None:
-        self.api_key = api_key
-        self.api_secret = api_secret.encode('utf-8')
+def format_amount(amount: Union[int, float, str], decimals: int = 8) -> Decimal:
+    return Decimal(str(amount)).quantize(Decimal(10) ** -decimals)
 
-    def generate_signature(self, payload: str) -> str:
-        return hmac.new(
-            self.api_secret,
-            payload.encode('utf-8'),
-            hashlib.sha256
-        ).hexdigest()
+def generate_address_hash(pubkey: str) -> str:
+    sha256 = hashlib.sha256(pubkey.encode()).digest()
+    ripemd160 = hashlib.new('ripemd160', sha256).hexdigest()
+    return ripemd160
 
-    def format_transaction(self, tx_id: str, amount: float, currency: str) -> Dict:
-        return {
-            "id": tx_id,
-            "amount": float(amount),
-            "currency": currency.upper(),
-            "verified": True
-        }
+def validate_fee_rate(rate: float) -> bool:
+    return 0.00000001 <= rate <= 0.1
 
-    def validate_address(self, address: str, network: str) -> bool:
-        if network == "ethereum":
-            return address.startswith("0x") and len(address) == 42
-        if network == "bitcoin":
-            return len(address) >= 26 and len(address) <= 35
-        return False
+def mask_key(key: str) -> str:
+    if len(key) < 8:
+        return "****"
+    return f"{key[:4]}{'*' * (len(key) - 8)}{key[-4:]}"
 
-    @staticmethod
-    def sanitize_amount(value: any) -> float:
-        try:
-            return round(float(value), 8)
-        except (ValueError, TypeError):
-            return 0.0
+def to_satoshi(amount: Union[float, Decimal]) -> int:
+    return int(Decimal(str(amount)) * 10**8)
+
+def from_satoshi(satoshi: int) -> Decimal:
+    return Decimal(satoshi) / Decimal(10**8)
