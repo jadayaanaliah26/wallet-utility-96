@@ -1,20 +1,28 @@
+from typing import Optional
+
 class WalletError(Exception):
-    """Base exception for wallet-utility-96"""
+    """Base exception class for wallet-utility-96."""
+    pass
 
 class InsufficientFundsError(WalletError):
-    """Raised when wallet balance is too low"""
+    """Raised when transaction amount exceeds balance."""
+    def __init__(self, amount: float, balance: float) -> None:
+        self.amount = amount
+        self.balance = balance
+        super().__init__(f"Required {amount} exceeds available {balance}")
 
 class InvalidAddressError(WalletError):
-    """Raised when the address format is incorrect"""
+    """Raised when the provided wallet address format is invalid."""
+    def __init__(self, address: str, network: Optional[str] = None) -> None:
+        self.address = address
+        self.network = network
+        message = f"Invalid address format '{address}' for network {network or 'default'}"
+        super().__init__(message)
 
 class ConnectionTimeoutError(WalletError):
-    """Raised when node communication fails"""
+    """Raised when node connectivity times out."""
+    pass
 
-class TransactionRejectedError(WalletError):
-    """Raised when the network rejects a broadcast"""
-
-class SignatureError(WalletError):
-    """Raised when cryptographic signing fails"""
-
-class ValidationError(WalletError):
-    """Raised for input validation failures"""
+class TransactionSigningError(WalletError):
+    """Raised when cryptographic signature creation fails."""
+    pass
