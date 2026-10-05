@@ -1,54 +1,28 @@
-import decimal
-import re
-from typing import Dict, Any, List
+import time
+import functools
+import requests
+from typing import Callable, Any
 
+def retry(attempts: int = 3, delay: float = 1.0, backoff: float = 2.0):
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            retries = 0
+            current_delay = delay
+            while retries < attempts:
+                try:
+                    return func(*args, **kwargs)
+                except (requests.RequestException, ConnectionError):
+                    retries += 1
+                    if retries >= attempts:
+                        raise
+                    time.sleep(current_delay)
+                    current_delay *= backoff
+        return wrapper
+    return decorator
 
-class ValidationError(Exception):
-    pass
-
-
-class TransactionProcessor:
-    ADDRESS_REGEX = re.compile(r"^(0x[a-fA-F0-9]{40}|[13][a-km-zA-HJ-NP-Z1-9]{26,33})$")
-
-    def __init__(self) -> None:
-        self.processed_transactions: List[Dict[str, Any]] = []
-
-    def validate_transaction(self, tx_data: Dict[str, Any]) -> Dict[str, Any]:
-        address = tx_data.get("address")
-        amount_str = tx_data.get("amount")
-
-        if not address or not isinstance(address, str):
-            raise ValidationError("Invalid or missing recipient address")
-
-        if not self.ADDRESS_REGEX.match(address):
-            raise ValidationError("Address format is invalid")
-
-        if not amount_str:
-            raise ValidationError("Missing transaction amount")
-
-        try:
-            amount = decimal.Decimal(str(amount_str))
-        except (ValueError, decimal.InvalidOperation):
-            raise ValidationError("Amount must be a valid numeric value")
-
-        if amount <= decimal.Decimal("0"):
-            raise ValidationError("Amount must be greater than zero")
-
-        return {"address": address, "amount": amount}
-
-    def process_batch(self, transactions: List[Dict[str, Any]]) -> Dict[str, Any]:
-        success_count = 0
-        failures = []
-
-        for index, tx in enumerate(transactions):
-            try:
-                validated_tx = self.validate_transaction(tx)
-                self.processed_transactions.append(validated_tx)
-                success_count += 1
-            except ValidationError as err:
-                failures.append({"index": index, "error": str(err)})
-
-        return {
-            "success_count": success_count,
-            "failures": failures
-        }
+@retry(attempts=3)
+def fetch_balance(address: str) -> dict:
+    response = requests.get(f"https://api.crypto.example/v1/wallet/{address}", timeout=5)
+    response.raise_for_status()
+    return response.json()
