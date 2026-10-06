@@ -1,24 +1,29 @@
-from enum import Enum, unique
+from enum import Enum
+from typing import Dict, Set
 
-@unique
-class ErrorCode(Enum):
-    INVALID_ADDRESS = "ERR_001"
-    INSUFFICIENT_FUNDS = "ERR_002"
-    NETWORK_TIMEOUT = "ERR_003"
-    API_LIMIT_EXCEEDED = "ERR_004"
-    TRANSACTION_FAILED = "ERR_005"
+class ChainID(Enum):
+    ETHEREUM = 1
+    POLYGON = 137
+    BSC = 56
 
-MAX_RETRY_ATTEMPTS = 3
-DEFAULT_TIMEOUT_SECONDS = 30
-SUPPORTED_NETWORKS = {"mainnet", "testnet", "devnet"}
+COIN_TICKERS: Set[str] = {'ETH', 'MATIC', 'BNB', 'USDT', 'USDC'}
 
-MIN_TX_AMOUNT = 1e-18
-MAX_TX_AMOUNT = 1e12
-
-ERROR_MESSAGES = {
-    ErrorCode.INVALID_ADDRESS: "The provided wallet address format is invalid",
-    ErrorCode.INSUFFICIENT_FUNDS: "Account balance is lower than requested amount",
-    ErrorCode.NETWORK_TIMEOUT: "Node connection timed out during broadcast",
-    ErrorCode.API_LIMIT_EXCEEDED: "Rate limit exceeded for blockchain node RPC",
-    ErrorCode.TRANSACTION_FAILED: "Transaction validation failed at the protocol layer"
+PRECISION_MAP: Dict[str, int] = {
+    'ETH': 18,
+    'MATIC': 18,
+    'BNB': 18,
+    'USDT': 6,
+    'USDC': 6
 }
+
+DEFAULT_TIMEOUT: float = 30.0
+MAX_RETRIES: int = 3
+
+RPC_ENDPOINTS: Dict[ChainID, str] = {
+    ChainID.ETHEREUM: "https://ethereum.publicnode.com",
+    ChainID.POLYGON: "https://polygon.llamarpc.com",
+    ChainID.BSC: "https://bsc-dataseed.binance.org"
+}
+
+DECIMALS_DEFAULT: int = 18
+MIN_GAS_LIMIT: int = 21000
