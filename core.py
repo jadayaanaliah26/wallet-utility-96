@@ -1,25 +1,29 @@
 import hashlib
-from decimal import Decimal
-from typing import Union
+from functools import lru_cache
+from typing import Tuple
 
-def format_amount(amount: Union[int, float, str], decimals: int = 8) -> Decimal:
-    return Decimal(str(amount)).quantize(Decimal(10) ** -decimals)
+class WalletProcessor:
+    def __init__(self, salt: str = "secure_salt"):
+        self.salt = salt
 
-def generate_address_hash(pubkey: str) -> str:
-    sha256 = hashlib.sha256(pubkey.encode()).digest()
-    ripemd160 = hashlib.new('ripemd160', sha256).hexdigest()
-    return ripemd160
+    @lru_cache(maxsize=1024)
+    def derive_key(self, input_data: str) -> bytes:
+        """Efficient derivation using cached hash results."""
+        return hashlib.sha256((input_data + self.salt).encode()).digest()
 
-def validate_fee_rate(rate: float) -> bool:
-    return 0.00000001 <= rate <= 0.1
+    def batch_process(self, data_points: Tuple[str, ...]) -> list:
+        """Optimized bulk processing with comprehension."""
+        return [self.derive_key(dp) for dp in data_points]
 
-def mask_key(key: str) -> str:
-    if len(key) < 8:
-        return "****"
-    return f"{key[:4]}{'*' * (len(key) - 8)}{key[-4:]}"
+    def clear_cache(self) -> None:
+        self.derive_key.cache_clear()
 
-def to_satoshi(amount: Union[float, Decimal]) -> int:
-    return int(Decimal(str(amount)) * 10**8)
-
-def from_satoshi(satoshi: int) -> Decimal:
-    return Decimal(satoshi) / Decimal(10**8)
+    @staticmethod
+    def validate_checksum(data: bytes, expected: bytes) -> bool:
+        """Constant-time comparison to prevent timing attacks."""
+        if len(data) != len(expected):
+            return False
+        result = 0
+        for x, y in zip(data, expected):
+            result |= x ^ y
+        return result == 0
