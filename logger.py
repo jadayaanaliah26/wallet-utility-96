@@ -1,25 +1,34 @@
 import logging
-import re
-from typing import Union
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
-class CryptoSanitizingFormatter(logging.Formatter):
-    """Formatter that redacts potential private keys from logs."""
+LOG_DIR = Path("logs")
+LOG_FILE = LOG_DIR / "wallet.log"
+MAX_BYTES = 5 * 1024 * 1024
+BACKUP_COUNT = 3
 
-    PRIVATE_KEY_REGEX = re.compile(r"\b[a-fA-F0-9]{64}\b")
-
-    def format(self, record: logging.LogRecord) -> str:
-        original_msg = super().format(record)
-        return self.PRIVATE_KEY_REGEX.sub("[REDACTED_KEY]", original_msg)
-
-def get_logger(name: str, level: Union[int, str] = logging.INFO) -> logging.Logger:
-    """Configure and return a sanitized console logger for the wallet utility."""
+def setup_logger(name: str = "wallet-utility-96") -> logging.Logger:
+    LOG_DIR.mkdir(exist_ok=True)
+    
     logger = logging.getLogger(name)
-    logger.setLevel(level)
+    logger.setLevel(logging.INFO)
+    
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    
+    file_handler = RotatingFileHandler(
+        LOG_FILE, 
+        maxBytes=MAX_BYTES, 
+        backupCount=BACKUP_COUNT
+    )
+    file_handler.setFormatter(formatter)
+    
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    
     if not logger.handlers:
-        handler = logging.StreamHandler()
-        formatter = CryptoSanitizingFormatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
+        
     return logger
