@@ -1,31 +1,37 @@
+from decimal import Decimal, ROUND_DOWN
 import hashlib
-import secrets
-from typing import Optional
+import re
 
-def generate_wallet_address(public_key: bytes) -> str:
-    sha256_hash = hashlib.sha256(public_key).digest()
-    ripemd160 = hashlib.new('ripemd160', sha256_hash).digest()
-    return ripemd160.hex()
 
-def validate_checksum(address: str) -> bool:
-    if len(address) != 40:
-        return False
-    try:
-        int(address, 16)
-        return True
-    except ValueError:
-        return False
+def satoshi_to_btc(satoshi: int) -> Decimal:
+    if satoshi < 0:
+        raise ValueError("Satoshi amount cannot be negative")
+    return (Decimal(satoshi) / Decimal("100000000")).quantize(
+        Decimal("0.00000001"), rounding=ROUND_DOWN
+    )
 
-def create_secure_nonce(length: int = 32) -> str:
-    return secrets.token_hex(length)
 
-def format_satoshi_to_btc(satoshi: int) -> float:
-    return float(satoshi / 100_000_000)
+def btc_to_satoshi(btc_amount: Decimal | float | str) -> int:
+    val = Decimal(str(btc_amount))
+    if val < 0:
+        raise ValueError("BTC amount cannot be negative")
+    return int(val * Decimal("100000000"))
 
-def format_btc_to_satoshi(btc: float) -> int:
-    return int(btc * 100_000_000)
 
-def sign_transaction_payload(payload: str, private_key: str) -> str:
-    message = payload.encode()
-    signature = hashlib.sha256(message + private_key.encode()).hexdigest()
-    return signature
+def truncate_address(address: str, prefix_len: int = 6, suffix_len: int = 4) -> str:
+    if not address:
+        return ""
+    if len(address) <= prefix_len + suffix_len:
+        return address
+    return f"{address[:prefix_len]}...{address[-suffix_len:]}"
+
+
+def double_sha256(data: bytes) -> str:
+    first_hash = hashlib.sha256(data).digest()
+    return hashlib.sha256(first_hash).hexdigest()
+
+
+def is_hex_string(val: str) -> bool:
+    if val.startswith(("0x", "0X")):
+        val = val[2:]
+    return bool(re.fullmatch(r"[0-9a-fA-F]+", val))
