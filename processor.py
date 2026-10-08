@@ -1,28 +1,35 @@
 import time
 import functools
-import requests
+import logging
 from typing import Callable, Any
 
-def retry(attempts: int = 3, delay: float = 1.0, backoff: float = 2.0):
-    def decorator(func: Callable):
+logger = logging.getLogger(__name__)
+
+def retry_network_operation(max_retries: int = 3, delay: float = 1.0) -> Callable:
+    def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            retries = 0
-            current_delay = delay
-            while retries < attempts:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            attempts = 0
+            while attempts < max_retries:
                 try:
                     return func(*args, **kwargs)
-                except (requests.RequestException, ConnectionError):
-                    retries += 1
-                    if retries >= attempts:
-                        raise
-                    time.sleep(current_delay)
-                    current_delay *= backoff
+                except (ConnectionError, TimeoutError) as e:
+                    attempts += 1
+                    if attempts >= max_retries:
+                        logger.error(f"operation failed after {max_retries} attempts")
+                        raise e
+                    time.sleep(delay * (2 ** (attempts - 1)))
+            return None
         return wrapper
     return decorator
 
-@retry(attempts=3)
+@retry_network_operation(max_retries=3)
 def fetch_balance(address: str) -> dict:
-    response = requests.get(f"https://api.crypto.example/v1/wallet/{address}", timeout=5)
-    response.raise_for_status()
-    return response.json()
+    # Simulated network call
+    return {"address": address, "balance": 0.0}
+
+def process_transaction(tx_data: dict) -> bool:
+    try:
+        return bool(fetch_balance(tx_data.get("from")))
+    except Exception:
+        return False
