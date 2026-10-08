@@ -1,37 +1,59 @@
-from decimal import Decimal, ROUND_DOWN
-import hashlib
-import re
+from typing import Union
 
 
-def satoshi_to_btc(satoshi: int) -> Decimal:
-    if satoshi < 0:
+def format_checksum_address(address: str) -> str:
+    """Format a crypto wallet address by stripping whitespace and converting to lowercase.
+
+    Args:
+        address: Raw blockchain wallet address string.
+
+    Returns:
+        Cleaned address string.
+    """
+    if not isinstance(address, str):
+        raise TypeError("Address must be a string")
+    return address.strip().lower()
+
+
+def satoshi_to_btc(satoshis: int) -> float:
+    """Convert standard Satoshi units to Bitcoin.
+
+    Args:
+        satoshis: Amount in Satoshis (1 BTC = 100,000,000 Satoshis).
+
+    Returns:
+        Equivalent value in BTC.
+    """
+    if satoshis < 0:
         raise ValueError("Satoshi amount cannot be negative")
-    return (Decimal(satoshi) / Decimal("100000000")).quantize(
-        Decimal("0.00000001"), rounding=ROUND_DOWN
-    )
+    return satoshis / 100_000_000.0
 
 
-def btc_to_satoshi(btc_amount: Decimal | float | str) -> int:
-    val = Decimal(str(btc_amount))
-    if val < 0:
+def btc_to_satoshi(btc: Union[int, float]) -> int:
+    """Convert Bitcoin amount to Satoshis.
+
+    Args:
+        btc: Amount in BTC.
+
+    Returns:
+        Equivalent value in Satoshis.
+    """
+    if btc < 0:
         raise ValueError("BTC amount cannot be negative")
-    return int(val * Decimal("100000000"))
+    return int(round(btc * 100_000_000))
 
 
-def truncate_address(address: str, prefix_len: int = 6, suffix_len: int = 4) -> str:
-    if not address:
-        return ""
-    if len(address) <= prefix_len + suffix_len:
-        return address
-    return f"{address[:prefix_len]}...{address[-suffix_len:]}"
+def mask_address(address: str, visible_chars: int = 4) -> str:
+    """Mask a public wallet address for display showing prefix and suffix.
 
+    Args:
+        address: Full public address string.
+        visible_chars: Number of characters to display at start and end.
 
-def double_sha256(data: bytes) -> str:
-    first_hash = hashlib.sha256(data).digest()
-    return hashlib.sha256(first_hash).hexdigest()
-
-
-def is_hex_string(val: str) -> bool:
-    if val.startswith(("0x", "0X")):
-        val = val[2:]
-    return bool(re.fullmatch(r"[0-9a-fA-F]+", val))
+    Returns:
+        Masked address string with ellipsis.
+    """
+    clean_addr = address.strip()
+    if len(clean_addr) <= visible_chars * 2:
+        return clean_addr
+    return f"{clean_addr[:visible_chars]}...{clean_addr[-visible_chars:]}"
