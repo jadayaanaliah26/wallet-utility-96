@@ -1,35 +1,29 @@
-import logging
-from typing import Dict, Any, Optional
-from dataclasses import dataclass
+import functools
+import hashlib
+from typing import Dict, Any
 
-@dataclass
-class WalletSession:
-    address: str
-    network: str
-    active: bool = True
+CACHE_SIZE = 1024
 
-class WalletHandler:
-    def __init__(self, logger: logging.Logger):
-        self.logger = logger
-        self.sessions: Dict[str, WalletSession] = {}
+@functools.lru_cache(maxsize=CACHE_SIZE)
+def compute_tx_hash(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
 
-    def create_session(self, address: str, network: str = 'mainnet') -> str:
-        if not address.startswith('0x'):
-            raise ValueError('Invalid address format')
-        session_id = f'sess_{address[-8:]}'
-        self.sessions[session_id] = WalletSession(address, network)
-        self.logger.info(f'session created for {address}')
-        return session_id
+class TransactionHandler:
+    def __init__(self):
+        self._memoization = {}
 
-    def terminate_session(self, session_id: str) -> bool:
-        if session_id in self.sessions:
-            del self.sessions[session_id]
-            self.logger.info(f'terminated session {session_id}')
-            return True
-        return False
+    def process_payload(self, payload: Dict[str, Any]) -> str:
+        serialized = f"{payload.get('id', '')}:{payload.get('nonce', 0)}".encode()
+        return compute_tx_hash(serialized)
 
-    def get_status(self, session_id: str) -> Optional[Dict[str, Any]]:
-        session = self.sessions.get(session_id)
-        if not session:
-            return None
-        return {'address': session.address, 'network': session.network}
+    def batch_process(self, transactions: list) -> list:
+        return [self.process_payload(tx) for tx in transactions]
+
+    @staticmethod
+    def get_optimized_bytes(data: str) -> bytes:
+        return data.encode('utf-8')
+
+    def execute(self, items: list) -> list:
+        if not items:
+            return []
+        return self.batch_process(items)
