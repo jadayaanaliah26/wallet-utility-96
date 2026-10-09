@@ -1,48 +1,54 @@
 # wallet-utility-96
 
-`wallet-utility-96` is a high-performance Python toolkit designed for secure management and batch processing of cryptocurrency wallets. It provides developers with a streamlined interface for key generation, address derivation, and automated balance reconciliation across multiple EVM-compatible chains.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-### Key Features
+`wallet-utility-96` is a lightweight Python toolkit designed for automated EVM wallet management, non-custodial balance tracking, and gas-optimized batch transactions. Built for crypto developers and bot operators, it simplifies multi-chain interactions across Ethereum, Polygon, and Arbitrum using direct Web3 RPC connections.
 
-*   **BIP-39 Implementation:** Secure generation of 12/24-word recovery phrases with entropy validation.
-*   **Multi-Chain Support:** Native derivation paths for Ethereum, Polygon, BSC, and Arbitrum.
-*   **Balance Aggregation:** Optimized asynchronous fetching of token balances to bypass rate-limiting during batch lookups.
-*   **Keystore Encryption:** AES-256-GCM encryption for local private key storage and handling.
+## Features
 
-### Installation
+* **Multi-Chain Balance Auditing:** Query native and ERC-20 token balances simultaneously across custom RPC endpoints with built-in multicall support.
+* **Batch Transaction Engine:** Send transfers to multiple destination addresses with automated nonce management and dynamic EIP-1559 gas pricing.
+* **BIP-39 HD Wallet Derivation:** Generate and restore hierarchical deterministic wallets locally using standard 12 or 24-word seed phrases.
+* **Keystore Encryption:** Encrypt and decrypt private keys on disk using AES-256-CBC for secure background task execution.
 
-Requires Python 3.9 or higher. Clone the repository and install dependencies via pip:
+## Installation
+
+Clone the repository and install the dependencies in a virtual environment:
 
 ```bash
 git clone https://github.com/Developer/wallet-utility-96.git
 cd wallet-utility-96
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Usage
+## Quick Start
 
-This snippet demonstrates how to generate a new wallet and derive the primary address:
+The following example demonstrates loading an encrypted key and broadcasting a standard transaction:
 
 ```python
 from wallet_utility import WalletManager
 
-# Initialize manager
-manager = WalletManager()
+# Initialize the wallet manager with an RPC endpoint
+wm = WalletManager(rpc_url="https://eth.llamarpc.com")
 
-# Generate new mnemonic and derive keys
-wallet = manager.create_new_wallet()
-print(f"Address: {wallet.address}")
-print(f"Private Key: {wallet.private_key}")
+# Load encrypted wallet keystore
+wallet = wm.load_keystore(path="keystore.json", password="securepassword123")
 
-# Check balance on Ethereum Mainnet
-balance = manager.get_balance(wallet.address, chain='eth')
-print(f"Current Balance: {balance} ETH")
+# Fetch current native balance
+balance = wm.get_native_balance(wallet.address)
+print(f"Address: {wallet.address} | Balance: {balance:.4f} ETH")
+
+# Send a native asset transfer
+tx_hash = wm.transfer_native(
+    account=wallet,
+    to_address="0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
+    amount=0.01
+)
+print(f"Transaction Hash: {tx_hash}")
 ```
 
-### Security Disclaimer
-This utility is intended for developer environments. Always ensure private keys are stored in encrypted environments and never commit sensitive keys to version control systems.
+## License
 
-### License
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-Distributed under the MIT License. See `LICENSE` for more information.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
