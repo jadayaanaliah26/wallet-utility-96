@@ -1,26 +1,34 @@
 import re
+from typing import Optional
 
 class ValidationError(Exception):
     pass
 
-def validate_address(address: str) -> None:
-    if not isinstance(address, str) or not re.match(r'^0x[a-fA-F0-9]{40}$', address):
-        raise ValidationError(f"invalid ethereum address: {address}")
+def validate_address(address: str, chain_type: str = 'evm') -> bool:
+    if not address or not isinstance(address, str):
+        raise ValidationError('Address must be a non-empty string')
 
-def validate_amount(amount: float) -> None:
-    if not isinstance(amount, (int, float)) or amount <= 0:
-        raise ValidationError(f"invalid transaction amount: {amount}")
+    if chain_type == 'evm':
+        if not re.match(r'^0x[a-fA-F0-9]{40}$', address):
+            raise ValidationError('Invalid EVM address format')
+    elif chain_type == 'btc':
+        if not re.match(r'^(1|3|bc1)[a-zA-Z0-9]{25,59}$', address):
+            raise ValidationError('Invalid BTC address format')
+    else:
+        raise ValueError(f'Unsupported chain type: {chain_type}')
 
-def validate_chain_id(chain_id: int) -> None:
-    supported_chains = {1, 137, 42161}
-    if chain_id not in supported_chains:
-        raise ValidationError(f"unsupported chain id: {chain_id}")
+    return True
 
-def validate_tx_payload(data: dict) -> None:
-    required_fields = {'address', 'amount', 'chain_id'}
-    if not all(key in data for key in required_fields):
-        raise ValidationError("missing required transaction fields")
-    
-    validate_address(data['address'])
-    validate_amount(data['amount'])
-    validate_chain_id(data['chain_id'])
+def validate_amount(amount: str) -> float:
+    try:
+        val = float(amount)
+        if val <= 0:
+            raise ValidationError('Amount must be positive')
+        return val
+    except (ValueError, TypeError):
+        raise ValidationError('Invalid numeric amount')
+
+def validate_gas_price(gwei: float) -> bool:
+    if gwei < 0.0001 or gwei > 5000:
+        raise ValidationError('Gas price out of sensible bounds')
+    return True
