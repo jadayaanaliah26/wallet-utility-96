@@ -1,34 +1,30 @@
 import re
-from typing import Optional
 
-class ValidationError(Exception):
-    pass
+ADDRESS_PATTERN = re.compile(r'^0x[a-fA-F0-9]{40}$')
 
-def validate_address(address: str, chain_type: str = 'evm') -> bool:
-    if not address or not isinstance(address, str):
-        raise ValidationError('Address must be a non-empty string')
 
-    if chain_type == 'evm':
-        if not re.match(r'^0x[a-fA-F0-9]{40}$', address):
-            raise ValidationError('Invalid EVM address format')
-    elif chain_type == 'btc':
-        if not re.match(r'^(1|3|bc1)[a-zA-Z0-9]{25,59}$', address):
-            raise ValidationError('Invalid BTC address format')
-    else:
-        raise ValueError(f'Unsupported chain type: {chain_type}')
+def validate_address(address: str) -> bool:
+    return bool(ADDRESS_PATTERN.match(address))
 
+
+def validate_amount(amount: float) -> bool:
+    return isinstance(amount, (int, float)) and amount > 0
+
+
+def process_transaction(address: str, amount: float) -> bool:
+    if not validate_address(address):
+        raise ValueError(f'invalid wallet address: {address}')
+    if not validate_amount(amount):
+        raise ValueError(f'invalid transaction amount: {amount}')
     return True
 
-def validate_amount(amount: str) -> float:
-    try:
-        val = float(amount)
-        if val <= 0:
-            raise ValidationError('Amount must be positive')
-        return val
-    except (ValueError, TypeError):
-        raise ValidationError('Invalid numeric amount')
 
-def validate_gas_price(gwei: float) -> bool:
-    if gwei < 0.0001 or gwei > 5000:
-        raise ValidationError('Gas price out of sensible bounds')
-    return True
+def transaction_loop(transactions: list) -> list:
+    results = []
+    for tx in transactions:
+        try:
+            if process_transaction(tx.get('addr'), tx.get('amount')):
+                results.append({'status': 'success', 'data': tx})
+        except ValueError as e:
+            results.append({'status': 'error', 'message': str(e)})
+    return results
