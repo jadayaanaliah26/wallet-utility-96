@@ -1,30 +1,38 @@
 import re
 
-ADDRESS_PATTERN = re.compile(r'^0x[a-fA-F0-9]{40}$')
+class AddressValidator:
+    ETH_PATTERN = re.compile(r'^0x[a-fA-F0-9]{40}$')
+    BTC_PATTERN = re.compile(r'^(1|3|bc1)[a-zA-Z0-9]{25,59}$')
 
+    @staticmethod
+    def is_valid_eth(address: str) -> bool:
+        return bool(AddressValidator.ETH_PATTERN.match(address))
 
-def validate_address(address: str) -> bool:
-    return bool(ADDRESS_PATTERN.match(address))
+    @staticmethod
+    def is_valid_btc(address: str) -> bool:
+        return bool(AddressValidator.BTC_PATTERN.match(address))
 
-
-def validate_amount(amount: float) -> bool:
-    return isinstance(amount, (int, float)) and amount > 0
-
-
-def process_transaction(address: str, amount: float) -> bool:
-    if not validate_address(address):
-        raise ValueError(f'invalid wallet address: {address}')
-    if not validate_amount(amount):
-        raise ValueError(f'invalid transaction amount: {amount}')
-    return True
-
-
-def transaction_loop(transactions: list) -> list:
-    results = []
-    for tx in transactions:
+class AmountValidator:
+    @staticmethod
+    def is_positive_decimal(amount: str) -> bool:
         try:
-            if process_transaction(tx.get('addr'), tx.get('amount')):
-                results.append({'status': 'success', 'data': tx})
-        except ValueError as e:
-            results.append({'status': 'error', 'message': str(e)})
-    return results
+            value = float(amount)
+            return value > 0
+        except ValueError:
+            return False
+
+    @staticmethod
+    def is_within_limit(amount: float, max_limit: float) -> bool:
+        return 0 < amount <= max_limit
+
+def validate_transaction_data(data: dict) -> bool:
+    required_fields = ['address', 'amount', 'currency']
+    if not all(field in data for field in required_fields):
+        return False
+
+    if data['currency'] == 'ETH':
+        return AddressValidator.is_valid_eth(data['address'])
+    if data['currency'] == 'BTC':
+        return AddressValidator.is_valid_btc(data['address'])
+    
+    return False
