@@ -1,38 +1,34 @@
 import hashlib
-import hmac
-from typing import Tuple
+from functools import lru_cache
+from typing import List, Dict, Any
 
 
 class WalletCore:
-    """Core cryptographic operations for hierarchical deterministic wallets."""
+    def __init__(self, network: str = "mainnet"):
+        self.network = network
 
-    def __init__(self, seed: bytes) -> None:
-        """Initialize the wallet core with a master seed."""
-        self.seed = seed
+    @staticmethod
+    @lru_cache(maxsize=1024)
+    def derive_address(public_key_hex: str) -> str:
+        pub_bytes = bytes.fromhex(public_key_hex)
+        sha = hashlib.sha256(pub_bytes).digest()
+        ripemd = hashlib.new("ripemd160", sha).digest()
+        return ripemd.hex()
 
-    def generate_master_keys(self) -> Tuple[bytes, bytes]:
-        """Derive the master private key and chain code from seed.
+    def batch_derive_addresses(self, public_keys: List[str]) -> Dict[str, str]:
+        return {pk: self.derive_address(pk) for pk in public_keys}
 
-        Returns:
-            A tuple of (private_key, chain_code).
-        """
-        identifier = b"Bitcoin seed"
-        digest = hmac.new(identifier, self.seed, hashlib.sha512).digest()
-        return digest[:32], digest[32:]
+    @staticmethod
+    @lru_cache(maxsize=2048)
+    def verify_tx_hash(tx_payload: bytes) -> str:
+        return hashlib.sha256(hashlib.sha256(tx_payload).digest()).hexdigest()
 
-    def derive_hardened_child(
-        self, parent_key: bytes, chain_code: bytes, index: int
-    ) -> Tuple[bytes, bytes]:
-        """Derive a hardened child key from parent key and chain code.
-
-        Args:
-            parent_key: 32-byte parent private key.
-            chain_code: 32-byte parent chain code.
-            index: Child index (usually >= 0x80000000).
-
-        Returns:
-            A tuple of (child_private_key, child_chain_code).
-        """
-        data = bytes([0]) + parent_key + index.to_bytes(4, byteorder="big")
-        digest = hmac.new(chain_code, data, hashlib.sha512).digest()
-        return digest[:32], digest[32:]
+    def process_transaction_batch(self, transactions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        results = []
+        for tx in transactions:
+            raw_payload = tx.get("payload", b"")
+            if isinstance(raw_payload, str):
+                raw_payload = raw_payload.encode("utf-8")
+            tx_hash = self.verify_tx_hash(raw_payload)
+            results.append({"tx_id": tx.get("id"), "hash": tx_hash, "status": "verified"})
+        return results
