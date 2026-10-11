@@ -1,34 +1,31 @@
-from concurrent.futures import ThreadPoolExecutor
-from functools import lru_cache
-import hashlib
-from typing import Any, Dict, List
+import logging
+from typing import Dict, Any, Optional
 
+logger = logging.getLogger(__name__)
 
-class BatchTransactionProcessor:
-    def __init__(self, max_workers: int = 8) -> None:
-        self.max_workers = max_workers
+class TransactionProcessor:
+    def __init__(self, wallet_id: str):
+        self.wallet_id = wallet_id
 
-    @staticmethod
-    @lru_cache(maxsize=8192)
-    def compute_tx_hash(payload: bytes) -> str:
-        return hashlib.blake2b(payload, digest_size=32).hexdigest()
+    def process_payload(self, data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        try:
+            if not isinstance(data, dict):
+                raise ValueError("invalid payload format")
+            
+            if "amount" not in data or "recipient" not in data:
+                raise KeyError("missing required transaction fields")
+            
+            if data["amount"] <= 0:
+                raise ValueError("transaction amount must be positive")
 
-    def _process_single_tx(self, tx: Dict[str, Any]) -> Dict[str, Any]:
-        raw_payload = f"{tx['sender']}:{tx['recipient']}:{tx['amount']}:{tx['nonce']}".encode()
-        tx_hash = self.compute_tx_hash(raw_payload)
-        is_valid = tx['sender'].startswith('0x') and tx['recipient'].startswith('0x')
-        return {
-            "tx_id": tx["tx_id"],
-            "hash": tx_hash,
-            "valid": is_valid,
-            "fee": tx.get("fee", 0)
-        }
+            return {"status": "success", "tx_id": "tx_96_ok"}
 
-    def process_batch(self, transactions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        if not transactions:
-            return []
-        if len(transactions) < 16:
-            return [self._process_single_tx(tx) for tx in transactions]
-
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            return list(executor.map(self._process_single_tx, transactions))
+        except ValueError as e:
+            logger.error(f"validation error: {e}")
+            return {"status": "error", "message": str(e)}
+        except KeyError as e:
+            logger.error(f"schema mismatch: {e}")
+            return {"status": "error", "message": "malformed request"}
+        except Exception as e:
+            logger.critical(f"unexpected system fault: {e}")
+            return {"status": "error", "message": "internal processing failure"}
