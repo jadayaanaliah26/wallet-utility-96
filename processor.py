@@ -1,31 +1,64 @@
-import logging
-from typing import Dict, Any, Optional
+from decimal import Decimal, InvalidOperation
+from typing import Any, Dict
 
-logger = logging.getLogger(__name__)
+
+class ProcessingError(Exception):
+    pass
+
+
+class InvalidAddressError(ProcessingError):
+    pass
+
+
+class InsufficientBalanceError(ProcessingError):
+    pass
+
 
 class TransactionProcessor:
-    def __init__(self, wallet_id: str):
-        self.wallet_id = wallet_id
+    def __init__(self, min_fee: Decimal = Decimal("0.0001")):
+        self.min_fee = min_fee
 
-    def process_payload(self, data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    def validate_address(self, address: str) -> None:
+        if not address or not isinstance(address, str):
+            raise InvalidAddressError("Address must be a non-empty string")
+        if not address.startswith("0x") or len(address) != 42:
+            raise InvalidAddressError("Malformed blockchain address format")
         try:
-            if not isinstance(data, dict):
-                raise ValueError("invalid payload format")
-            
-            if "amount" not in data or "recipient" not in data:
-                raise KeyError("missing required transaction fields")
-            
-            if data["amount"] <= 0:
-                raise ValueError("transaction amount must be positive")
+            int(address[2:], 16)
+        except ValueError:
+            raise InvalidAddressError("Address contains invalid hex characters")
 
-            return {"status": "success", "tx_id": "tx_96_ok"}
+    def process_transaction(self, payload: Dict[str, Any]) -> Dict[str, str]:
+        required_keys = {"sender", "recipient", "amount", "balance", "fee"}
+        if not required_keys.issubset(payload.keys()):
+            missing = required_keys - payload.keys()
+            raise ProcessingError(f"Missing required fields: {missing}")
 
-        except ValueError as e:
-            logger.error(f"validation error: {e}")
-            return {"status": "error", "message": str(e)}
-        except KeyError as e:
-            logger.error(f"schema mismatch: {e}")
-            return {"status": "error", "message": "malformed request"}
-        except Exception as e:
-            logger.critical(f"unexpected system fault: {e}")
-            return {"status": "error", "message": "internal processing failure"}
+        self.validate_address(payload["sender"])
+        self.validate_address(payload["recipient"])
+
+        try:
+            amount = Decimal(str(payload["amount"]))
+            balance = Decimal(str(payload["balance"]))
+            fee = Decimal(str(payload["fee"]))
+        except (InvalidOperation, TypeError) as err:
+            raise ProcessingError(f"Invalid numeric value in payload: {err}") from err
+
+        if amount <= Decimal("0"):
+            raise ProcessingError("Transaction amount must be positive")
+
+        if fee < self.min_fee:
+            raise ProcessingError(f"Fee below minimum threshold of {self.min_fee}")
+
+        total_deduction = amount + fee
+        if total_deduction > balance:
+            raise InsufficientBalanceError("Insufficient funds for transfer")
+
+        remaining = balance - total_deduction
+        return {
+            "status": "success",
+            "sender": payload["sender"],
+            "recipient": payload["recipient"],
+            "amount": str(amount),
+            "remaining_balance": str(remaining),
+        }
