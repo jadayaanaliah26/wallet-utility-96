@@ -1,29 +1,26 @@
+from typing import Final
 from enum import Enum
-from typing import Dict, Set
 
 class ChainID(Enum):
-    ETHEREUM = 1
-    POLYGON = 137
-    BSC = 56
+    MAINNET: int = 1
+    GOERLI: int = 5
+    SEPOLIA: int = 11155111
 
-COIN_TICKERS: Set[str] = {'ETH', 'MATIC', 'BNB', 'USDT', 'USDC'}
+CACHE_TTL: Final[int] = 300
+MAX_RETRIES: Final[int] = 3
+DEFAULT_TIMEOUT: Final[float] = 10.0
 
-PRECISION_MAP: Dict[str, int] = {
-    'ETH': 18,
-    'MATIC': 18,
-    'BNB': 18,
-    'USDT': 6,
-    'USDC': 6
+RPC_ENDPOINTS: Final[dict[ChainID, str]] = {
+    ChainID.MAINNET: "https://eth.llamarpc.com",
+    ChainID.GOERLI: "https://rpc.ankr.com/eth_goerli",
+    ChainID.SEPOLIA: "https://rpc.sepolia.org",
 }
 
-DEFAULT_TIMEOUT: float = 30.0
-MAX_RETRIES: int = 3
+BYTE_ORDER: Final[str] = "big"
+ADDRESS_LEN: Final[int] = 20
+GAS_LIMIT_BUFFER: Final[float] = 1.2
 
-RPC_ENDPOINTS: Dict[ChainID, str] = {
-    ChainID.ETHEREUM: "https://ethereum.publicnode.com",
-    ChainID.POLYGON: "https://polygon.llamarpc.com",
-    ChainID.BSC: "https://bsc-dataseed.binance.org"
-}
-
-DECIMALS_DEFAULT: int = 18
-MIN_GAS_LIMIT: int = 21000
+# Performance optimization constants
+BATCH_SIZE: Final[int] = 100
+CONCURRENCY_LIMIT: Final[int] = 10
+PREFETCH_COUNT: Final[int] = 50
