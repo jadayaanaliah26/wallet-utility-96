@@ -1,45 +1,37 @@
 import logging
-from logging.handlers import RotatingFileHandler
-from pathlib import Path
+import sys
+from typing import Optional
 
-
-def setup_logger(
-    name: str = "wallet_utility",
-    log_dir: str = "logs",
-    level: int = logging.INFO,
-    max_bytes: int = 5 * 1024 * 1024,
-    backup_count: int = 5,
-) -> logging.Logger:
-    logger = logging.getLogger(name)
+def setup_logger(name: str, level: int = logging.INFO) -> logging.Logger:
+    """Initialize and return a configured logger instance."""
+    logger: logging.Logger = logging.getLogger(name)
     logger.setLevel(level)
 
-    if logger.handlers:
-        return logger
-
-    log_path = Path(log_dir)
-    log_path.mkdir(parents=True, exist_ok=True)
-    log_file = log_path / f"{name}.log"
-
-    formatter = logging.Formatter(
-        fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
+    formatter: logging.Formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
+    handler: logging.StreamHandler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(formatter)
 
-    file_handler = RotatingFileHandler(
-        filename=log_file,
-        maxBytes=max_bytes,
-        backupCount=backup_count,
-        encoding="utf-8",
-    )
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
+    if not logger.handlers:
+        logger.addHandler(handler)
 
     return logger
 
+def get_logger(name: str) -> logging.Logger:
+    """Retrieve an existing logger or create a new one."""
+    return logging.getLogger(name)
 
-def get_logger(module_name: str) -> logging.Logger:
-    return logging.getLogger(f"wallet_utility.{module_name}")
+class WalletLogger:
+    """Utility class for wallet-related logging operations."""
+    def __init__(self, name: str) -> None:
+        self.logger: logging.Logger = setup_logger(name)
+
+    def info(self, message: str) -> None:
+        """Log informational messages."""
+        self.logger.info(message)
+
+    def error(self, message: str, exc_info: bool = False) -> None:
+        """Log error messages with optional stack trace."""
+        self.logger.error(message, exc_info=exc_info)
