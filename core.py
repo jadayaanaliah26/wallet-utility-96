@@ -1,48 +1,38 @@
 import hashlib
-import re
-from typing import Any, Dict, Union
+from functools import lru_cache
+from typing import Dict, List, Tuple
 
 
-class CryptoDataProcessor:
-    ETH_ADDRESS_PATTERN = re.compile(r"^0x[a-fA-F0-9]{40}$")
-    BTC_ADDRESS_PATTERN = re.compile(r"^(1|3|bc1)[a-zA-HJ-NP-Z0-9]{25,62}$")
-
-    @staticmethod
-    def to_wei(amount: Union[int, float, str], decimals: int = 18) -> int:
-        return int(float(amount) * (10**decimals))
+class CryptoCore:
+    def __init__(self, chain_id: int = 1) -> None:
+        self.chain_id = chain_id
 
     @staticmethod
-    def from_wei(amount_wei: int, decimals: int = 18) -> float:
-        return amount_wei / (10**decimals)
-
-    @classmethod
-    def validate_address(cls, address: str, chain: str = "eth") -> bool:
-        if not isinstance(address, str):
-            return False
-        chain = chain.lower()
-        if chain in ("eth", "ethereum"):
-            return bool(cls.ETH_ADDRESS_PATTERN.match(address))
-        elif chain in ("btc", "bitcoin"):
-            return bool(cls.BTC_ADDRESS_PATTERN.match(address))
-        return False
+    @lru_cache(maxsize=8192)
+    def hash256(data: bytes) -> bytes:
+        return hashlib.sha256(hashlib.sha256(data).digest()).digest()
 
     @staticmethod
-    def format_transaction_payload(tx_data: Dict[str, Any]) -> Dict[str, Any]:
-        required_keys = {"to", "value", "chain"}
-        missing = required_keys - set(tx_data.keys())
-        if missing:
-            raise ValueError(f"Missing required keys: {missing}")
+    @lru_cache(maxsize=4096)
+    def derive_checksum_address(pubkey_bytes: bytes) -> str:
+        keccak_hash = hashlib.sha3_256(pubkey_bytes).hexdigest()
+        raw_address = keccak_hash[-40:]
+        addr_hash = hashlib.sha3_256(raw_address.encode("utf-8")).hexdigest()
 
-        return {
-            "to": str(tx_data["to"]).strip(),
-            "value_wei": int(tx_data["value"]),
-            "chain": str(tx_data["chain"]).lower(),
-            "nonce": int(tx_data.get("nonce", 0)),
-            "gas_limit": int(tx_data.get("gas_limit", 21000)),
-            "data": str(tx_data.get("data", "0x")),
-        }
+        checksummed = []
+        for i, char in enumerate(raw_address):
+            if char.isalpha() and int(addr_hash[i], 16) >= 8:
+                checksummed.append(char.upper())
+            else:
+                checksummed.append(char)
 
-    @staticmethod
-    def compute_payload_hash(payload: Dict[str, Any]) -> str:
-        raw = f"{payload.get('to')}:{payload.get('value_wei')}:{payload.get('nonce')}"
-        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+        return "0x" + "".join(checksummed)
+
+    def batch_derive_addresses(self, pubkeys: List[bytes]) -> Dict[bytes, str]:
+        unique_pubkeys = set(pubkeys)
+        return {pk: self.derive_checksum_address(pk) for pk in unique_pubkeys}
+
+    def verify_transaction_hashes(
+        self, tx_payloads: List[bytes]
+    ) -> List[Tuple[bytes, str]]:
+        return [(payload, self.hash256(payload).hex()) for payload in tx_payloads]
