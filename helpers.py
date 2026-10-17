@@ -1,22 +1,31 @@
 import hashlib
-import secrets
+import hmac
 from typing import Optional
 
-def generate_mnemonic(strength: int = 128) -> str:
-    return secrets.token_hex(strength // 8)
+def generate_signature(api_secret: str, payload: str) -> str:
+    return hmac.new(
+        api_secret.encode('utf-8'),
+        payload.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
 
-def derive_address(public_key: str) -> str:
-    sha256 = hashlib.sha256(public_key.encode()).hexdigest()
-    return f"0x{hashlib.new('ripemd160', sha256.encode()).hexdigest()}"
+def format_address(address: str) -> str:
+    if not address:
+        return ""
+    return f"{address[:6]}...{address[-4:]}"
 
-def validate_checksum(address: str) -> bool:
-    if not address.startswith("0x") or len(address) != 42:
-        return False
-    return all(c in "0123456789abcdefABCDEF" for c in address[2:])
+def parse_amount(amount: str) -> float:
+    try:
+        return float(amount)
+    except (ValueError, TypeError):
+        return 0.0
 
-def format_amount(wei: int, decimals: int = 18) -> float:
-    return wei / (10 ** decimals)
+def validate_checksum(data: bytes, expected: str) -> bool:
+    actual = hashlib.sha256(data).hexdigest()
+    return hmac.compare_digest(actual, expected)
 
-def sign_message(private_key: str, message: str) -> str:
-    data = message.encode()
-    return hashlib.sha256(private_key.encode() + data).hexdigest()
+def sanitize_currency(symbol: str) -> str:
+    return symbol.strip().upper()
+
+def get_fee_basis_points(amount: float, rate: float = 0.001) -> int:
+    return int(amount * rate * 10000)
