@@ -1,26 +1,29 @@
-from typing import Final, Dict, List
+from typing import Final
 
-# Crypto currency network constants
-DEFAULT_TIMEOUT: Final[int] = 30
-MAX_RETRIES: Final[int] = 3
+# Network constants
+MAINNET_CHAIN_ID: Final = 1
+TESTNET_CHAIN_ID: Final = 11155111
 
-NETWORKS: Final[Dict[str, str]] = {
-    "mainnet": "https://mainnet.infura.io/v3/",
-    "sepolia": "https://sepolia.infura.io/v3/",
-    "polygon": "https://polygon-rpc.com"
-}
+# Security constants
+MAX_RETRY_ATTEMPTS: Final = 3
+DEFAULT_TIMEOUT_SECONDS: Final = 30
 
-SUPPORTED_TOKENS: Final[List[str]] = ["ETH", "BTC", "USDT", "USDC"]
+# Validation patterns
+ADDRESS_PATTERN: Final = r"^0x[a-fA-F0-9]{40}$"
+MNEMONIC_WORD_COUNT: Final = 12
 
-MIN_GAS_LIMIT: Final[int] = 21000
-DEFAULT_DECIMALS: Final[int] = 18
+# Storage paths
+DEFAULT_KEYSTORE_PATH: Final = "./keystore"
+ENV_FILE_PATH: Final = ".env"
 
-def get_network_url(name: str) -> str:
-    """Return the RPC URL for a given network name."""
-    return NETWORKS.get(name, NETWORKS["mainnet"])
+# Fee estimates
+GAS_PRICE_BUFFER: Final = 1.15
+PRIORITY_FEE_MULTIPLIER: Final = 1.2
 
-class ConfigDefaults:
-    """Configuration default values for wallet operations."""
-    BATCH_SIZE: int = 10
-    DEBUG_MODE: bool = False
-    LOG_FILE: str = "wallet.log"
+# Error messages
+ERR_INVALID_ADDRESS: Final = "invalid wallet address format"
+ERR_INSUFFICIENT_FUNDS: Final = "insufficient funds for transaction"
+ERR_CONNECTION_TIMEOUT: Final = "blockchain connection timed out"
+
+# Asset identifiers
+SUPPORTED_ASSETS: Final = {"ETH", "BTC", "USDT", "USDC"}
