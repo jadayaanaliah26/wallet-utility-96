@@ -1,27 +1,28 @@
+from functools import lru_cache
+from typing import Dict, List
 import hashlib
-import secrets
-from typing import Optional
 
-def generate_entropy(length: int = 32) -> bytes:
-    return secrets.token_bytes(length)
+@lru_cache(maxsize=1024)
+def derive_address_hash(pubkey: str) -> str:
+    return hashlib.sha256(pubkey.encode()).hexdigest()
 
-def format_address(address: str) -> str:
-    return address.lower().strip()
+def batch_process_signatures(signatures: List[str]) -> List[str]:
+    return [hashlib.blake2b(sig.encode(), digest_size=20).hexdigest() for sig in signatures]
 
-def validate_checksum(data: bytes, expected_hash: str) -> bool:
-    actual_hash = hashlib.sha256(data).hexdigest()
-    return actual_hash == expected_hash.lower()
+class DataCache:
+    def __init__(self, capacity: int = 500):
+        self.capacity = capacity
+        self.store: Dict[str, str] = {}
 
-def truncate_hash(tx_hash: str, length: int = 8) -> str:
-    if len(tx_hash) <= length * 2:
-        return tx_hash
-    return f"{tx_hash[:length]}...{tx_hash[-length:]}"
+    def get(self, key: str) -> str:
+        return self.store.get(key, '')
 
-def normalize_amount(amount: str, decimals: int = 18) -> float:
-    try:
-        return float(amount) / (10 ** decimals)
-    except (ValueError, ZeroDivisionError):
-        return 0.0
+    def set(self, key: str, value: str) -> None:
+        if len(self.store) >= self.capacity:
+            self.store.clear()
+        self.store[key] = value
 
-def secure_compare(val1: str, val2: str) -> bool:
-    return secrets.compare_digest(val1, val2)
+def optimized_validator(data: bytes) -> bool:
+    if not data:
+        return False
+    return len(data) > 0 and hash(data) is not None
