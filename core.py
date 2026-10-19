@@ -1,38 +1,36 @@
-import hashlib
-from functools import lru_cache
-from typing import Dict, List, Tuple
+import logging
+from typing import Optional, Dict, Any
 
+class WalletError(Exception):
+    pass
 
-class CryptoCore:
-    def __init__(self, chain_id: int = 1) -> None:
-        self.chain_id = chain_id
+class WalletProcessor:
+    def __init__(self, balance: float = 0.0):
+        self.balance = balance
 
-    @staticmethod
-    @lru_cache(maxsize=8192)
-    def hash256(data: bytes) -> bytes:
-        return hashlib.sha256(hashlib.sha256(data).digest()).digest()
+    def process_transaction(self, amount: float) -> Dict[str, Any]:
+        try:
+            if amount <= 0:
+                raise ValueError("Transaction amount must be positive")
+            
+            if amount > self.balance:
+                raise WalletError("Insufficient funds for transaction")
 
-    @staticmethod
-    @lru_cache(maxsize=4096)
-    def derive_checksum_address(pubkey_bytes: bytes) -> str:
-        keccak_hash = hashlib.sha3_256(pubkey_bytes).hexdigest()
-        raw_address = keccak_hash[-40:]
-        addr_hash = hashlib.sha3_256(raw_address.encode("utf-8")).hexdigest()
+            self.balance -= amount
+            return {"status": "success", "remaining": self.balance}
 
-        checksummed = []
-        for i, char in enumerate(raw_address):
-            if char.isalpha() and int(addr_hash[i], 16) >= 8:
-                checksummed.append(char.upper())
-            else:
-                checksummed.append(char)
+        except ValueError as e:
+            logging.error(f"Validation error: {e}")
+            return {"status": "error", "message": str(e)}
+        except WalletError as e:
+            logging.error(f"Execution error: {e}")
+            return {"status": "error", "message": str(e)}
+        except Exception as e:
+            logging.critical(f"Unexpected system failure: {e}")
+            return {"status": "error", "message": "Internal system failure"}
 
-        return "0x" + "".join(checksummed)
-
-    def batch_derive_addresses(self, pubkeys: List[bytes]) -> Dict[bytes, str]:
-        unique_pubkeys = set(pubkeys)
-        return {pk: self.derive_checksum_address(pk) for pk in unique_pubkeys}
-
-    def verify_transaction_hashes(
-        self, tx_payloads: List[bytes]
-    ) -> List[Tuple[bytes, str]]:
-        return [(payload, self.hash256(payload).hex()) for payload in tx_payloads]
+    def update_balance(self, new_balance: float) -> bool:
+        if not isinstance(new_balance, (int, float)) or new_balance < 0:
+            return False
+        self.balance = float(new_balance)
+        return True
