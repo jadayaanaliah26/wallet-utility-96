@@ -1,32 +1,56 @@
 import re
+from typing import Any, Dict
 
-class WalletValidator:
-    ADDRESS_PATTERN = re.compile(r'^(0x)?[0-9a-fA-F]{40}$')
 
-    @staticmethod
-    def validate_address(address: str) -> bool:
-        return bool(WalletValidator.ADDRESS_PATTERN.match(address))
+class ValidationError(Exception):
+    pass
 
-    @staticmethod
-    def validate_amount(amount: float) -> bool:
-        return isinstance(amount, (int, float)) and amount > 0
 
-def process_transaction(data: dict):
-    addr = data.get("address")
-    amt = data.get("amount")
+def validate_address(address: str, chain: str = "eth") -> bool:
+    if not isinstance(address, str) or not address:
+        raise ValidationError("Address must be a non-empty string")
 
-    if not WalletValidator.validate_address(addr):
-        raise ValueError(f"invalid wallet address: {addr}")
-    
-    if not WalletValidator.validate_amount(amt):
-        raise ValueError(f"invalid transaction amount: {amt}")
+    patterns = {
+        "eth": r"^0x[a-fA-F0-9]{40}$",
+        "btc": r"^(1|3|bc1)[a-zA-HJ-NP-Z0-9]{25,62}$",
+    }
 
+    pattern = patterns.get(chain.lower())
+    if not pattern:
+        raise ValidationError(f"Unsupported chain: {chain}")
+
+    if not re.match(pattern, address):
+        raise ValidationError(f"Invalid {chain.upper()} address format")
     return True
 
-def run_main_loop(queue):
-    for entry in queue:
-        try:
-            if process_transaction(entry):
-                print(f"processed: {entry.get('address')}")
-        except (ValueError, TypeError) as e:
-            print(f"validation failure: {e}")
+
+def validate_amount(amount: Any, max_limit: float = 1e6) -> float:
+    try:
+        val = float(amount)
+    except (ValueError, TypeError):
+        raise ValidationError("Amount must be a numeric value")
+
+    if val <= 0:
+        raise ValidationError("Amount must be greater than zero")
+    if val > max_limit:
+        raise ValidationError(f"Amount exceeds maximum limit of {max_limit}")
+    return val
+
+
+def validate_transaction_input(data: Dict[str, Any]) -> Dict[str, Any]:
+    if not isinstance(data, dict):
+        raise ValidationError("Input payload must be a dictionary")
+
+    required_keys = {"recipient", "amount", "chain"}
+    missing = required_keys - set(data.keys())
+    if missing:
+        raise ValidationError(f"Missing required fields: {', '.join(missing)}")
+
+    validate_address(data["recipient"], data["chain"])
+    validated_amount = validate_amount(data["amount"])
+
+    return {
+        "recipient": data["recipient"],
+        "amount": validated_amount,
+        "chain": data["chain"].lower(),
+    }
