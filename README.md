@@ -1,54 +1,59 @@
-# wallet-utility-96
-
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-`wallet-utility-96` is a lightweight Python toolkit designed for automated EVM wallet management, non-custodial balance tracking, and gas-optimized batch transactions. Built for crypto developers and bot operators, it simplifies multi-chain interactions across Ethereum, Polygon, and Arbitrum using direct Web3 RPC connections.
+# wallet-utility-96
+
+`wallet-utility-96` is a lightweight Python toolkit designed to automate multi-chain EVM wallet generation, balance tracking, and transaction batching. Built for quantitative traders and web3 developers, it streamlines programmatic asset management across Ethereum, Polygon, and Arbitrum networks.
 
 ## Features
 
-* **Multi-Chain Balance Auditing:** Query native and ERC-20 token balances simultaneously across custom RPC endpoints with built-in multicall support.
-* **Batch Transaction Engine:** Send transfers to multiple destination addresses with automated nonce management and dynamic EIP-1559 gas pricing.
-* **BIP-39 HD Wallet Derivation:** Generate and restore hierarchical deterministic wallets locally using standard 12 or 24-word seed phrases.
-* **Keystore Encryption:** Encrypt and decrypt private keys on disk using AES-256-CBC for secure background task execution.
+- **HD Wallet Derivation**: Generate hierarchical deterministic wallets using BIP-39 mnemonics and custom derivation paths.
+- **Multi-Chain Balance Aggregation**: Asynchronously query ETH, MATIC, and arbitrary ERC-20 token balances in a single request.
+- **Gas-Optimized Batching**: Package and broadcast multiple ERC-20 transfers concurrently to minimize gas overhead.
+- **AES-256 Storage**: Encrypt keypairs locally using AES-256-GCM before persisting to disk.
 
 ## Installation
 
-Clone the repository and install the dependencies in a virtual environment:
+Install the package via `pip` from PyPI:
+
+```bash
+pip install wallet-utility-96
+```
+
+Or install directly from the source repository:
 
 ```bash
 git clone https://github.com/Developer/wallet-utility-96.git
 cd wallet-utility-96
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+pip install .
 ```
 
-## Quick Start
+## Quickstart
 
-The following example demonstrates loading an encrypted key and broadcasting a standard transaction:
+The following example demonstrates how to create a new wallet, encrypt its credentials, and fetch current portfolio balances:
 
 ```python
-from wallet_utility import WalletManager
+from wallet_utility import KeyManager, WalletClient
 
-# Initialize the wallet manager with an RPC endpoint
-wm = WalletManager(rpc_url="https://eth.llamarpc.com")
+# Initialize manager and generate a new HD wallet
+km = KeyManager()
+mnemonic, wallet = km.create_hd_wallet()
 
-# Load encrypted wallet keystore
-wallet = wm.load_keystore(path="keystore.json", password="securepassword123")
+print(f"Address: {wallet.address}")
+print(f"Mnemonic: {mnemonic}")
 
-# Fetch current native balance
-balance = wm.get_native_balance(wallet.address)
-print(f"Address: {wallet.address} | Balance: {balance:.4f} ETH")
+# Securely encrypt private key locally
+encrypted_data = km.encrypt_private_key(wallet.private_key, password="StrongPassword123")
 
-# Send a native asset transfer
-tx_hash = wm.transfer_native(
-    account=wallet,
-    to_address="0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
-    amount=0.01
+# Query multi-chain ERC-20 balances
+client = WalletClient(provider_url="https://eth.llamarpc.com")
+balances = client.get_token_balances(
+    address=wallet.address,
+    tokens=["0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"]  # USDC Mainnet
 )
-print(f"Transaction Hash: {tx_hash}")
+
+print(balances)
 ```
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Distributed under the MIT License. See `LICENSE` for more information.
