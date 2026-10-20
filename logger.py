@@ -1,23 +1,28 @@
 import logging
-from logging.handlers import RotatingFileHandler
-from pathlib import Path
+import sys
+from typing import Optional
 
-def get_logger(name: str, log_file: str = "wallet.log") -> logging.Logger:
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
+class WalletLogger:
+    """Handles application logging for wallet-utility-96."""
 
-    if not logger.handlers:
-        log_path = Path(log_file)
-        handler = RotatingFileHandler(
-            log_path,
-            maxBytes=5 * 1024 * 1024,
-            backupCount=3,
-            encoding="utf-8"
-        )
-        formatter = logging.Formatter(
+    def __init__(self, name: str = "wallet-utility") -> None:
+        self.logger: logging.Logger = logging.getLogger(name)
+        self.logger.setLevel(logging.INFO)
+        handler: logging.StreamHandler = logging.StreamHandler(sys.stdout)
+        formatter: logging.Formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
         handler.setFormatter(formatter)
-        logger.addHandler(handler)
+        self.logger.addHandler(handler)
 
-    return logger
+    def info(self, message: str) -> None:
+        """Log informational message."""
+        self.logger.info(message)
+
+    def error(self, message: str, exc_info: Optional[Exception] = None) -> None:
+        """Log error message with optional exception trace."""
+        self.logger.error(message, exc_info=exc_info)
+
+    def debug(self, message: str) -> None:
+        """Log debug message."""
+        self.logger.debug(message)
