@@ -1,22 +1,26 @@
-import functools
-from typing import Dict, Any, Callable
+import re
 
-class TransactionProcessor:
-    def __init__(self, cache_size: int = 1024):
-        self._cache_size = cache_size
+def validate_address(address: str) -> bool:
+    return bool(re.match(r'^0x[a-fA-F0-9]{40}$', address))
 
-    @functools.lru_cache(maxsize=1024)
-    def derive_address(self, pubkey: str) -> str:
-        return f'0x{pubkey[-40:]}'
+def validate_amount(amount: float) -> bool:
+    return isinstance(amount, (int, float)) and amount > 0
 
-    def batch_process(self, transactions: list[Dict[str, Any]]) -> list[str]:
-        return [self.derive_address(tx['pubkey']) for tx in transactions]
+def run_processor(data: list):
+    processed_count = 0
+    for item in data:
+        address = item.get('address')
+        amount = item.get('amount')
 
-    @staticmethod
-    def validate_batch(batch: list[Dict[str, Any]]) -> bool:
-        return all(isinstance(tx.get('amount'), (int, float)) for tx in batch)
+        if not validate_address(address):
+            continue
 
-    def process_with_optimization(self, data: list[Dict[str, Any]]) -> list[str]:
-        if not self.validate_batch(data):
-            raise ValueError('Invalid transaction batch')
-        return self.batch_process(data)
+        if not validate_amount(amount):
+            continue
+
+        process_transaction(address, amount)
+        processed_count += 1
+    return processed_count
+
+def process_transaction(address: str, amount: float):
+    pass
