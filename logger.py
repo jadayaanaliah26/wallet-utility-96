@@ -1,28 +1,26 @@
 import logging
-import sys
-from typing import Optional
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
-class WalletLogger:
-    """Handles application logging for wallet-utility-96."""
+def setup_logger(name: str, log_file: str = "wallet.log") -> logging.Logger:
+    path = Path(log_file)
+    path.parent.mkdir(parents=True, exist_ok=True)
 
-    def __init__(self, name: str = "wallet-utility") -> None:
-        self.logger: logging.Logger = logging.getLogger(name)
-        self.logger.setLevel(logging.INFO)
-        handler: logging.StreamHandler = logging.StreamHandler(sys.stdout)
-        formatter: logging.Formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
-        handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
 
-    def info(self, message: str) -> None:
-        """Log informational message."""
-        self.logger.info(message)
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
 
-    def error(self, message: str, exc_info: Optional[Exception] = None) -> None:
-        """Log error message with optional exception trace."""
-        self.logger.error(message, exc_info=exc_info)
-
-    def debug(self, message: str) -> None:
-        """Log debug message."""
-        self.logger.debug(message)
+    handler = RotatingFileHandler(
+        log_file, 
+        maxBytes=5 * 1024 * 1024, 
+        backupCount=3
+    )
+    handler.setFormatter(formatter)
+    
+    if not logger.handlers:
+        logger.addHandler(handler)
+        
+    return logger
