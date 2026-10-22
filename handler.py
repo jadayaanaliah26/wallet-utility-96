@@ -1,26 +1,30 @@
-import time
-import functools
-from typing import Callable, Any
+import logging
 
-def with_retry(retries: int = 3, delay: float = 1.0, backoff: float = 2.0):
-    def decorator(func: Callable):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            local_retries = retries
-            current_delay = delay
-            while True:
-                try:
-                    return func(*args, **kwargs)
-                except (ConnectionError, TimeoutError) as e:
-                    if local_retries <= 0:
-                        raise e
-                    time.sleep(current_delay)
-                    local_retries -= 1
-                    current_delay *= backoff
-        return wrapper
-    return decorator
+class WalletError(Exception):
+    pass
 
-@with_retry(retries=3, delay=0.5)
-def fetch_balance(wallet_address: str) -> float:
-    # Simulation of network dependent call
-    return 0.0
+class InsufficientFundsError(WalletError):
+    pass
+
+class InvalidAddressError(WalletError):
+    pass
+
+def execute_transaction(wallet, amount: float, recipient: str):
+    if not isinstance(amount, (int, float)) or amount <= 0:
+        raise ValueError('Invalid transaction amount')
+
+    if not recipient.startswith('0x') or len(recipient) != 42:
+        raise InvalidAddressError(f'Invalid address format: {recipient}')
+
+    try:
+        if wallet.balance < amount:
+            raise InsufficientFundsError(f'Balance {wallet.balance} insufficient for {amount}')
+        
+        wallet.balance -= amount
+        return True
+    except (InsufficientFundsError, InvalidAddressError) as e:
+        logging.error(f'Transaction failed: {str(e)}')
+        raise
+    except Exception as e:
+        logging.critical(f'Unexpected system error: {str(e)}')
+        raise WalletError('System failure during execution')
