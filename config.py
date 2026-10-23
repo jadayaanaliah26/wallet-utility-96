@@ -1,28 +1,27 @@
 import os
-from typing import Any, Dict
+from typing import Dict, Any
+from dataclasses import dataclass
 
-DEFAULT_CONFIG: Dict[str, Any] = {
-    "RPC_URL": "https://mainnet.infura.io/v3/",
-    "TIMEOUT": 30,
-    "MAX_RETRIES": 3,
-    "LOG_LEVEL": "INFO"
-}
+@dataclass(frozen=True)
+class NetworkConfig:
+    mainnet_rpc: str = "https://mainnet.infura.io/v3/"
+    testnet_rpc: str = "https://sepolia.infura.io/v3/"
+    timeout: int = 30
 
-def load_config() -> Dict[str, Any]:
-    config = DEFAULT_CONFIG.copy()
-    env_vars = {
-        "RPC_URL": os.getenv("RPC_URL"),
-        "TIMEOUT": os.getenv("TIMEOUT"),
-        "MAX_RETRIES": os.getenv("MAX_RETRIES"),
-        "LOG_LEVEL": os.getenv("LOG_LEVEL")
-    }
+class AppConfig:
+    def __init__(self) -> None:
+        self._config: Dict[str, Any] = {
+            "environment": os.getenv("ENV", "production"),
+            "retry_limit": int(os.getenv("RETRY_LIMIT", "3")),
+            "log_level": os.getenv("LOG_LEVEL", "INFO")
+        }
 
-    for key, value in env_vars.items():
-        if value is not None:
-            if isinstance(config[key], int):
-                config[key] = int(value)
-            else:
-                config[key] = value
-    return config
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._config.get(key, default)
 
-settings = load_config()
+    @property
+    def network(self) -> NetworkConfig:
+        return NetworkConfig()
+
+def load_config() -> AppConfig:
+    return AppConfig()
