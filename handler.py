@@ -1,30 +1,32 @@
-import logging
+import functools
+from typing import Dict, Any
+from concurrent.futures import ThreadPoolExecutor
 
-class WalletError(Exception):
-    pass
+CACHE: Dict[str, Any] = {}
 
-class InsufficientFundsError(WalletError):
-    pass
+@functools.lru_cache(maxsize=1024)
+def get_cached_balance(wallet_id: str) -> float:
+    return float(CACHE.get(wallet_id, 0.0))
 
-class InvalidAddressError(WalletError):
-    pass
+def batch_process_balances(wallet_ids: list[str]) -> dict[str, float]:
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        results = executor.map(get_cached_balance, wallet_ids)
+    return dict(zip(wallet_ids, results))
 
-def execute_transaction(wallet, amount: float, recipient: str):
-    if not isinstance(amount, (int, float)) or amount <= 0:
-        raise ValueError('Invalid transaction amount')
+def update_balance_cache(wallet_id: str, amount: float) -> None:
+    CACHE[wallet_id] = amount
+    get_cached_balance.cache_clear()
 
-    if not recipient.startswith('0x') or len(recipient) != 42:
-        raise InvalidAddressError(f'Invalid address format: {recipient}')
+class TransactionHandler:
+    def __init__(self, wallet_id: str):
+        self.wallet_id = wallet_id
 
-    try:
-        if wallet.balance < amount:
-            raise InsufficientFundsError(f'Balance {wallet.balance} insufficient for {amount}')
-        
-        wallet.balance -= amount
+    @property
+    def balance(self) -> float:
+        return get_cached_balance(self.wallet_id)
+
+    def execute(self, amount: float) -> bool:
+        if self.balance < amount:
+            return False
+        update_balance_cache(self.wallet_id, self.balance - amount)
         return True
-    except (InsufficientFundsError, InvalidAddressError) as e:
-        logging.error(f'Transaction failed: {str(e)}')
-        raise
-    except Exception as e:
-        logging.critical(f'Unexpected system error: {str(e)}')
-        raise WalletError('System failure during execution')
