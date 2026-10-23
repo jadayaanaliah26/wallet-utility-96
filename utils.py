@@ -1,39 +1,24 @@
+import time
 import functools
 import logging
-import random
-import time
-from typing import Any, Callable, Tuple, Type
+from typing import Callable, Any
 
 logger = logging.getLogger(__name__)
 
-
-def retry_network_op(
-    max_retries: int = 3,
-    initial_delay: float = 1.0,
-    backoff_factor: float = 2.0,
-    jitter: bool = True,
-    exceptions: Tuple[Type[Exception], ...] = (Exception,),
-) -> Callable:
-    def decorator(func: Callable) -> Callable:
+def with_retry(retries: int = 3, delay: float = 1.0, backoff: float = 2.0):
+    def decorator(func: Callable):
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            delay = initial_delay
-            for attempt in range(1, max_retries + 1):
+            local_delay = delay
+            for attempt in range(retries):
                 try:
                     return func(*args, **kwargs)
-                except exceptions as err:
-                    if attempt == max_retries:
-                        logger.error(
-                            f"Operation {func.__name__} failed after {max_retries} attempts: {err}"
-                        )
+                except Exception as e:
+                    if attempt == retries - 1:
+                        logger.error(f"Final attempt failed: {e}")
                         raise
-                    sleep_time = delay * (1 + random.random()) if jitter else delay
-                    logger.warning(
-                        f"Attempt {attempt}/{max_retries} failed for {func.__name__}: {err}. Retrying in {sleep_time:.2f}s"
-                    )
-                    time.sleep(sleep_time)
-                    delay *= backoff_factor
-
+                    logger.warning(f"Attempt {attempt + 1} failed, retrying in {local_delay}s")
+                    time.sleep(local_delay)
+                    local_delay *= backoff
         return wrapper
-
     return decorator
