@@ -1,56 +1,26 @@
 import re
-from typing import Any, Dict
 
+ADDRESS_PATTERNS = {
+    'btc': r'^(1|3|bc1)[a-zA-HJ-NP-Z0-9]{25,59}$',
+    'eth': r'^0x[a-fA-F0-9]{40}$'
+}
 
-class ValidationError(Exception):
-    pass
-
-
-def validate_address(address: str, chain: str = "eth") -> bool:
-    if not isinstance(address, str) or not address:
-        raise ValidationError("Address must be a non-empty string")
-
-    patterns = {
-        "eth": r"^0x[a-fA-F0-9]{40}$",
-        "btc": r"^(1|3|bc1)[a-zA-HJ-NP-Z0-9]{25,62}$",
-    }
-
-    pattern = patterns.get(chain.lower())
+def validate_address(address: str, chain: str) -> bool:
+    pattern = ADDRESS_PATTERNS.get(chain.lower())
     if not pattern:
-        raise ValidationError(f"Unsupported chain: {chain}")
+        raise ValueError(f"unsupported chain: {chain}")
+    return bool(re.match(pattern, address))
 
-    if not re.match(pattern, address):
-        raise ValidationError(f"Invalid {chain.upper()} address format")
-    return True
-
-
-def validate_amount(amount: Any, max_limit: float = 1e6) -> float:
+def sanitize_amount(amount: str) -> float:
     try:
-        val = float(amount)
+        value = float(amount)
+        if value < 0:
+            return 0.0
+        return value
     except (ValueError, TypeError):
-        raise ValidationError("Amount must be a numeric value")
+        return 0.0
 
-    if val <= 0:
-        raise ValidationError("Amount must be greater than zero")
-    if val > max_limit:
-        raise ValidationError(f"Amount exceeds maximum limit of {max_limit}")
-    return val
-
-
-def validate_transaction_input(data: Dict[str, Any]) -> Dict[str, Any]:
-    if not isinstance(data, dict):
-        raise ValidationError("Input payload must be a dictionary")
-
-    required_keys = {"recipient", "amount", "chain"}
-    missing = required_keys - set(data.keys())
-    if missing:
-        raise ValidationError(f"Missing required fields: {', '.join(missing)}")
-
-    validate_address(data["recipient"], data["chain"])
-    validated_amount = validate_amount(data["amount"])
-
-    return {
-        "recipient": data["recipient"],
-        "amount": validated_amount,
-        "chain": data["chain"].lower(),
-    }
+def validate_transaction_hex(tx_hex: str) -> bool:
+    if not isinstance(tx_hex, str):
+        return False
+    return bool(re.fullmatch(r'^[0-9a-fA-F]+$', tx_hex))
