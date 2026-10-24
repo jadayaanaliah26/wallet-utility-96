@@ -1,26 +1,21 @@
 from typing import Final
 
-# Network identifiers
-MAINNET_ID: Final[str] = "mainnet"
-TESTNET_ID: Final[str] = "testnet"
-
-# Security configurations
-MIN_PASSWORD_LENGTH: Final[int] = 12
-PBKDF2_ITERATIONS: Final[int] = 600000
-AES_KEY_SIZE: Final[int] = 32
-
-# API endpoints and defaults
-DEFAULT_TIMEOUT: Final[float] = 30.0
+RPC_TIMEOUT: Final[int] = 30
 MAX_RETRIES: Final[int] = 3
+GAS_LIMIT_BUFFER: Final[float] = 1.2
 
-# Formatting defaults
-DECIMAL_PRECISION: Final[int] = 8
-CURRENCY_SYMBOL: Final[str] = "$"
+CURRENCIES: Final[list[str]] = ['BTC', 'ETH', 'SOL']
+NETWORKS: Final[dict[str, str]] = {
+    'mainnet': 'https://api.mainnet.network',
+    'testnet': 'https://api.testnet.network'
+}
 
-# Error messages
-ERR_INVALID_ADDRESS: Final[str] = "invalid wallet address format"
-ERR_INSUFFICIENT_FUNDS: Final[str] = "insufficient funds for transaction"
-ERR_CONNECTION_FAILED: Final[str] = "network connection request failed"
+ERROR_MESSAGES: Final[dict[str, str]] = {
+    'insufficient_funds': 'wallet balance below required threshold',
+    'connection_error': 'failed to establish network connection',
+    'invalid_address': 'provided destination address is malformed'
+}
 
-# Supported protocols
-SUPPORTED_NETWORKS: Final[list[str]] = [MAINNET_ID, TESTNET_ID]
+DB_TABLE_NAME: Final[str] = 'wallet_transactions'
+DEFAULT_ENCODING: Final[str] = 'utf-8'
+LOG_FORMAT: Final[str] = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
