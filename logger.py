@@ -1,46 +1,37 @@
-import os
+import json
 import logging
-from logging.handlers import RotatingFileHandler
-
-DEFAULT_LOG_DIR = "logs"
-DEFAULT_LOG_FILE = "wallet.log"
+import sys
+from datetime import datetime, timezone
 
 
-def setup_logger(
-    name: str = "wallet_utility",
-    log_file: str = DEFAULT_LOG_FILE,
-    level: int = logging.INFO,
-    max_bytes: int = 5 * 1024 * 1024,
-    backup_count: int = 5,
-) -> logging.Logger:
+class CryptoJsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        log_payload = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "level": record.levelname,
+            "message": record.getMessage(),
+            "module": record.module,
+        }
+        if hasattr(record, "tx_hash"):
+            log_payload["tx_hash"] = record.tx_hash
+        if hasattr(record, "wallet_address"):
+            log_payload["wallet_address"] = record.wallet_address
+        if record.exc_info:
+            log_payload["exception"] = self.formatException(record.exc_info)
+        return json.dumps(log_payload)
+
+
+def setup_logger(name: str = "wallet_utility", level: int = logging.INFO) -> logging.Logger:
     logger = logging.getLogger(name)
     logger.setLevel(level)
-
-    if logger.handlers:
-        return logger
-
-    log_dir = os.path.dirname(log_file) or DEFAULT_LOG_DIR
-    if log_dir and not os.path.exists(log_dir):
-        os.makedirs(log_dir, exist_ok=True)
-
-    log_path = os.path.join(log_dir, os.path.basename(log_file))
-    formatter = logging.Formatter(
-        fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-    file_handler = RotatingFileHandler(
-        log_path, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8"
-    )
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-
+    if not logger.handlers:
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(CryptoJsonFormatter())
+        logger.addHandler(handler)
+    logger.propagate = False
     return logger
 
 
-def get_logger(name: str = "wallet_utility") -> logging.Logger:
-    return logging.getLogger(name)
+def log_transaction(logger: logging.Logger, level: int, msg: str, tx_hash: str, address: str) -> None:
+    extra = {"tx_hash": tx_hash, "wallet_address": address}
+    logger.log(level, msg, extra=extra)
