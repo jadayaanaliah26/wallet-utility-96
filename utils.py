@@ -1,20 +1,31 @@
-import time
-import functools
-from typing import Callable, Any, Type
+import hashlib
+import hmac
+from typing import Optional
 
-def retry_network_call(retries: int = 3, delay: float = 1.0, exceptions: tuple = (ConnectionError, TimeoutError)):
-    def decorator(func: Callable):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            last_exception = None
-            for attempt in range(retries):
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as e:
-                    last_exception = e
-                    if attempt < retries - 1:
-                        time.sleep(delay * (2 ** attempt))
-                        continue
-            raise last_exception
-        return wrapper
-    return decorator
+def generate_signature(api_secret: str, payload: str) -> str:
+    return hmac.new(
+        api_secret.encode('utf-8'),
+        payload.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
+
+def validate_address(address: str, chain: str) -> bool:
+    if chain == 'eth':
+        return len(address) == 42 and address.startswith('0x')
+    if chain == 'btc':
+        return 26 <= len(address) <= 35
+    return False
+
+def format_wei(amount: int) -> float:
+    return float(amount) / 10**18
+
+def sanitize_input(data: Optional[str]) -> str:
+    if not data:
+        return ''
+    return data.strip().lower()
+
+class WalletError(Exception):
+    pass
+
+def get_error_message(error: Exception) -> str:
+    return f'wallet-utility-96 error: {str(error)}'
