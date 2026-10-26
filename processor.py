@@ -1,26 +1,24 @@
-import re
+import time
+import functools
+from typing import Callable, Any, Type
 
-def validate_address(address: str) -> bool:
-    return bool(re.match(r'^0x[a-fA-F0-9]{40}$', address))
+def retry(exceptions: tuple[Type[Exception], ...], max_retries: int = 3, delay: float = 1.0):
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            attempts = 0
+            while attempts < max_retries:
+                try:
+                    return func(*args, **kwargs)
+                except exceptions:
+                    attempts += 1
+                    if attempts == max_retries:
+                        raise
+                    time.sleep(delay * (2 ** (attempts - 1)))
+        return wrapper
+    return decorator
 
-def validate_amount(amount: float) -> bool:
-    return isinstance(amount, (int, float)) and amount > 0
-
-def run_processor(data: list):
-    processed_count = 0
-    for item in data:
-        address = item.get('address')
-        amount = item.get('amount')
-
-        if not validate_address(address):
-            continue
-
-        if not validate_amount(amount):
-            continue
-
-        process_transaction(address, amount)
-        processed_count += 1
-    return processed_count
-
-def process_transaction(address: str, amount: float):
-    pass
+@retry(exceptions=(ConnectionError, TimeoutError))
+def fetch_balance(address: str) -> float:
+    # Simulate network operation
+    return 0.0
