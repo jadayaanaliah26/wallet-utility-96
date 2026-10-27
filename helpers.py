@@ -1,57 +1,34 @@
-import re
-from typing import Any, Dict, List
+import hashlib
+from typing import Optional
 
+def generate_address(public_key: bytes) -> str:
+    """Generate a hex-encoded crypto wallet address from public key."""
+    sha256_hash: bytes = hashlib.sha256(public_key).digest()
+    ripemd160: hashlib._Hash = hashlib.new("ripemd160")
+    ripemd160.update(sha256_hash)
+    return ripemd160.hexdigest()
 
-class WalletValidationError(Exception):
-    pass
+def validate_checksum(address: str, checksum: str) -> bool:
+    """Verify integrity of wallet address against provided checksum."""
+    computed: str = hashlib.sha256(address.encode()).hexdigest()[:8]
+    return computed == checksum
 
+def format_balance(amount: float, precision: int = 8) -> str:
+    """Convert float balance to zero-padded string representation."""
+    template: str = f":.{precision}f"
+    return format(amount, template)
 
-def validate_eth_address(address: str) -> bool:
-    if not isinstance(address, str):
-        return False
-    return bool(re.match(r"^0x[a-fA-F0-9]{40}$", address))
+def mask_private_key(key: str) -> str:
+    """Obfuscate private key for secure logging purposes."""
+    if len(key) < 8:
+        return "***"
+    return f"{key[:4]}...{key[-4:]}"
 
-
-def validate_transaction_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
-    required_keys = {"recipient", "amount", "nonce", "chain_id"}
-    if not isinstance(payload, dict):
-        raise WalletValidationError("Payload must be a dictionary")
-
-    missing = required_keys - payload.keys()
-    if missing:
-        raise WalletValidationError(f"Missing fields: {', '.join(sorted(missing))}")
-
-    recipient = payload["recipient"]
-    if not validate_eth_address(recipient):
-        raise WalletValidationError(f"Invalid Ethereum address: {recipient}")
-
+def parse_fee_rate(fee_input: Optional[str]) -> float:
+    """Convert fee input string to float or default base rate."""
+    if not fee_input:
+        return 0.0001
     try:
-        amount = float(payload["amount"])
-        if amount <= 0:
-            raise ValueError()
-    except (ValueError, TypeError):
-        raise WalletValidationError("Amount must be a positive number")
-
-    if not isinstance(payload["nonce"], int) or payload["nonce"] < 0:
-        raise WalletValidationError("Nonce must be a non-negative integer")
-
-    if not isinstance(payload["chain_id"], int) or payload["chain_id"] <= 0:
-        raise WalletValidationError("Chain ID must be a positive integer")
-
-    return {
-        "recipient": recipient.lower(),
-        "amount": amount,
-        "nonce": payload["nonce"],
-        "chain_id": payload["chain_id"],
-    }
-
-
-def process_batch_inputs(raw_inputs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    validated = []
-    for idx, raw in enumerate(raw_inputs):
-        try:
-            item = validate_transaction_payload(raw)
-            validated.append(item)
-        except WalletValidationError as err:
-            raise WalletValidationError(f"Invalid item at index {idx}: {err}")
-    return validated
+        return float(fee_input)
+    except ValueError:
+        return 0.0001
