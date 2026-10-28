@@ -1,37 +1,31 @@
-import json
 import logging
-import sys
-from datetime import datetime, timezone
+import os
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
-
-class CryptoJsonFormatter(logging.Formatter):
-    def format(self, record: logging.LogRecord) -> str:
-        log_payload = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "level": record.levelname,
-            "message": record.getMessage(),
-            "module": record.module,
-        }
-        if hasattr(record, "tx_hash"):
-            log_payload["tx_hash"] = record.tx_hash
-        if hasattr(record, "wallet_address"):
-            log_payload["wallet_address"] = record.wallet_address
-        if record.exc_info:
-            log_payload["exception"] = self.formatException(record.exc_info)
-        return json.dumps(log_payload)
-
-
-def setup_logger(name: str = "wallet_utility", level: int = logging.INFO) -> logging.Logger:
+def setup_logger(name: str, log_file: str = "wallet.log") -> logging.Logger:
     logger = logging.getLogger(name)
-    logger.setLevel(level)
-    if not logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setFormatter(CryptoJsonFormatter())
-        logger.addHandler(handler)
-    logger.propagate = False
+    logger.setLevel(logging.INFO)
+
+    log_path = Path("logs")
+    log_path.mkdir(exist_ok=True)
+
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+
+    file_handler = RotatingFileHandler(
+        log_path / log_file,
+        maxBytes=5 * 1024 * 1024,
+        backupCount=5,
+        encoding="utf-8"
+    )
+    file_handler.setFormatter(formatter)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+
     return logger
-
-
-def log_transaction(logger: logging.Logger, level: int, msg: str, tx_hash: str, address: str) -> None:
-    extra = {"tx_hash": tx_hash, "wallet_address": address}
-    logger.log(level, msg, extra=extra)
