@@ -1,29 +1,58 @@
 import re
+from typing import Union
 
-def validate_address(address: str) -> bool:
+
+class WalletValidationError(ValueError):
+    pass
+
+
+class InvalidAddressError(WalletValidationError):
+    pass
+
+
+class InvalidAmountError(WalletValidationError):
+    pass
+
+
+def validate_ethereum_address(address: str) -> str:
     if not isinstance(address, str):
-        return False
-    return bool(re.fullmatch(r'0x[a-fA-F0-9]{40}', address))
+        raise InvalidAddressError("Address must be a string")
+    cleaned = address.strip()
+    if not cleaned:
+        raise InvalidAddressError("Address cannot be empty")
+    if not re.match(r"^0x[a-fA-F0-9]{40}$", cleaned):
+        raise InvalidAddressError("Invalid Ethereum address format")
+    return cleaned
 
-def validate_amount(amount: float) -> bool:
+
+def validate_transaction_amount(
+    amount: Union[int, float, str], min_amount: float = 0.0001
+) -> float:
     try:
         val = float(amount)
-        return val > 0
     except (ValueError, TypeError):
-        return False
+        raise InvalidAmountError("Amount must be numeric")
 
-def process_transaction_input(data: dict) -> dict:
-    address = data.get('address', '')
-    amount = data.get('amount', 0)
-    
-    if not validate_address(address):
-        raise ValueError(f'Invalid wallet address: {address}')
-    
-    if not validate_amount(amount):
-        raise ValueError(f'Invalid transaction amount: {amount}')
-    
-    return {
-        'address': address,
-        'amount': float(amount),
-        'status': 'validated'
-    }
+    if val != val or val in (float("inf"), float("-inf")):
+        raise InvalidAmountError("Amount must be a finite non-NaN number")
+
+    if val <= 0:
+        raise InvalidAmountError("Amount must be positive")
+
+    if val < min_amount:
+        raise InvalidAmountError(f"Amount below minimum threshold: {min_amount}")
+
+    return val
+
+
+def validate_hex_seed(seed: str) -> str:
+    if not isinstance(seed, str):
+        raise WalletValidationError("Seed must be a string")
+    cleaned = seed.strip().lower()
+    if cleaned.startswith("0x"):
+        cleaned = cleaned[2:]
+    if len(cleaned) not in (64, 128):
+        raise WalletValidationError("Hex seed must be 64 or 128 characters")
+    if not re.match(r"^[a-f0-9]+$", cleaned):
+        raise WalletValidationError("Seed contains non-hexadecimal characters")
+    return cleaned
