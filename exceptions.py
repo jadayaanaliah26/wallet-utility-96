@@ -1,23 +1,30 @@
 class WalletError(Exception):
-    """Base exception for wallet-utility-96"""
+    """Base exception for wallet-utility-96."""
+    pass
+
+class ValidationError(WalletError):
+    """Raised when input fails validation."""
+    pass
+
+class AddressFormatError(ValidationError):
+    """Raised for malformed crypto addresses."""
     pass
 
 class InsufficientFundsError(WalletError):
-    """Raised when account balance is insufficient"""
+    """Raised when balance is too low."""
     pass
 
-class InvalidAddressError(WalletError):
-    """Raised when address checksum fails"""
-    pass
+def validate_address(address: str, chain: str) -> None:
+    if not address or len(address) < 26:
+        raise AddressFormatError(f"Invalid {chain} address format")
 
-class NetworkTimeoutError(WalletError):
-    """Raised when RPC connection times out"""
-    pass
+def validate_amount(amount: float) -> None:
+    if amount <= 0:
+        raise ValidationError("Amount must be positive")
 
-class TransactionRejectedError(WalletError):
-    """Raised when network rejects signature"""
-    pass
-
-class DecryptionError(WalletError):
-    """Raised when key store unlock fails"""
-    pass
+def process_input(data: dict) -> None:
+    try:
+        validate_address(data.get("to"), data.get("chain"))
+        validate_amount(data.get("amount", 0))
+    except (AddressFormatError, ValidationError) as e:
+        raise ValidationError(f"Input validation failed: {str(e)}") from e
