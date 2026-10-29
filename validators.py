@@ -1,58 +1,28 @@
 import re
 from typing import Union
 
+def validate_address(address: str, chain: str = 'ethereum') -> bool:
+    patterns = {
+        'ethereum': r'^0x[a-fA-F0-9]{40}$',
+        'bitcoin': r'^(1|3|bc1)[a-zA-HJ-NP-Z0-9]{25,59}$'
+    }
+    pattern = patterns.get(chain.lower())
+    if not pattern:
+        return False
+    return bool(re.match(pattern, address))
 
-class WalletValidationError(ValueError):
-    pass
-
-
-class InvalidAddressError(WalletValidationError):
-    pass
-
-
-class InvalidAmountError(WalletValidationError):
-    pass
-
-
-def validate_ethereum_address(address: str) -> str:
-    if not isinstance(address, str):
-        raise InvalidAddressError("Address must be a string")
-    cleaned = address.strip()
-    if not cleaned:
-        raise InvalidAddressError("Address cannot be empty")
-    if not re.match(r"^0x[a-fA-F0-9]{40}$", cleaned):
-        raise InvalidAddressError("Invalid Ethereum address format")
-    return cleaned
-
-
-def validate_transaction_amount(
-    amount: Union[int, float, str], min_amount: float = 0.0001
-) -> float:
+def validate_amount(amount: Union[int, float, str]) -> bool:
     try:
         val = float(amount)
+        return val >= 0
     except (ValueError, TypeError):
-        raise InvalidAmountError("Amount must be numeric")
+        return False
 
-    if val != val or val in (float("inf"), float("-inf")):
-        raise InvalidAmountError("Amount must be a finite non-NaN number")
+def sanitize_currency_code(code: str) -> str:
+    if not isinstance(code, str):
+        return ''
+    clean = re.sub(r'[^A-Z]', '', code.upper())
+    return clean if 2 <= len(clean) <= 5 else ''
 
-    if val <= 0:
-        raise InvalidAmountError("Amount must be positive")
-
-    if val < min_amount:
-        raise InvalidAmountError(f"Amount below minimum threshold: {min_amount}")
-
-    return val
-
-
-def validate_hex_seed(seed: str) -> str:
-    if not isinstance(seed, str):
-        raise WalletValidationError("Seed must be a string")
-    cleaned = seed.strip().lower()
-    if cleaned.startswith("0x"):
-        cleaned = cleaned[2:]
-    if len(cleaned) not in (64, 128):
-        raise WalletValidationError("Hex seed must be 64 or 128 characters")
-    if not re.match(r"^[a-f0-9]+$", cleaned):
-        raise WalletValidationError("Seed contains non-hexadecimal characters")
-    return cleaned
+def check_tx_hex(tx_hash: str) -> bool:
+    return bool(re.match(r'^[a-fA-F0-9]{64}$', tx_hash))
