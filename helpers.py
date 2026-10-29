@@ -1,34 +1,27 @@
-import hashlib
-from typing import Optional
+import re
 
-def generate_address(public_key: bytes) -> str:
-    """Generate a hex-encoded crypto wallet address from public key."""
-    sha256_hash: bytes = hashlib.sha256(public_key).digest()
-    ripemd160: hashlib._Hash = hashlib.new("ripemd160")
-    ripemd160.update(sha256_hash)
-    return ripemd160.hexdigest()
+ADDRESS_PATTERN = re.compile(r'^(0x)?[0-9a-fA-F]{40}$')
 
-def validate_checksum(address: str, checksum: str) -> bool:
-    """Verify integrity of wallet address against provided checksum."""
-    computed: str = hashlib.sha256(address.encode()).hexdigest()[:8]
-    return computed == checksum
+def validate_wallet_address(address: str) -> bool:
+    if not isinstance(address, str):
+        return False
+    return bool(ADDRESS_PATTERN.match(address))
 
-def format_balance(amount: float, precision: int = 8) -> str:
-    """Convert float balance to zero-padded string representation."""
-    template: str = f":.{precision}f"
-    return format(amount, template)
-
-def mask_private_key(key: str) -> str:
-    """Obfuscate private key for secure logging purposes."""
-    if len(key) < 8:
-        return "***"
-    return f"{key[:4]}...{key[-4:]}"
-
-def parse_fee_rate(fee_input: Optional[str]) -> float:
-    """Convert fee input string to float or default base rate."""
-    if not fee_input:
-        return 0.0001
+def validate_amount(amount: str) -> bool:
     try:
-        return float(fee_input)
-    except ValueError:
-        return 0.0001
+        value = float(amount)
+        return value > 0
+    except (ValueError, TypeError):
+        return False
+
+def process_transaction(data: dict) -> dict:
+    address = data.get('address', '')
+    amount = data.get('amount', '')
+
+    if not validate_wallet_address(address):
+        return {'status': 'error', 'message': 'invalid address format'}
+
+    if not validate_amount(amount):
+        return {'status': 'error', 'message': 'invalid transaction amount'}
+
+    return {'status': 'success', 'data': {'address': address, 'amount': float(amount)}}
