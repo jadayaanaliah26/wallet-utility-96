@@ -1,31 +1,46 @@
-import hashlib
-import hmac
-from typing import Optional
+from decimal import Decimal, ROUND_DOWN
+import re
 
-def generate_signature(api_secret: str, payload: str) -> str:
-    return hmac.new(
-        api_secret.encode('utf-8'),
-        payload.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
+EVM_ADDRESS_PATTERN = re.compile(r"^0x[a-fA-F0-9]{40}$")
 
-def validate_address(address: str, chain: str) -> bool:
-    if chain == 'eth':
-        return len(address) == 42 and address.startswith('0x')
-    if chain == 'btc':
-        return 26 <= len(address) <= 35
-    return False
 
-def format_wei(amount: int) -> float:
-    return float(amount) / 10**18
+def format_address(address: str, chars: int = 4) -> str:
+    if not address or len(address) < (chars * 2 + 2):
+        return address
+    return f"{address[:chars + 2]}...{address[-chars:]}"
 
-def sanitize_input(data: Optional[str]) -> str:
-    if not data:
-        return ''
-    return data.strip().lower()
 
-class WalletError(Exception):
-    pass
+def to_base_unit(amount: str | float | Decimal, decimals: int = 18) -> int:
+    val = Decimal(str(amount))
+    factor = Decimal(10) ** decimals
+    return int((val * factor).quantize(Decimal("1"), rounding=ROUND_DOWN))
 
-def get_error_message(error: Exception) -> str:
-    return f'wallet-utility-96 error: {str(error)}'
+
+def from_base_unit(amount: int, decimals: int = 18) -> Decimal:
+    val = Decimal(amount)
+    factor = Decimal(10) ** decimals
+    return val / factor
+
+
+def is_valid_evm_address(address: str) -> bool:
+    return bool(EVM_ADDRESS_PATTERN.match(address))
+
+
+def parse_transfer_log(raw_log: dict) -> dict:
+    topics = raw_log.get("topics", [])
+    data = raw_log.get("data", "0x")
+
+    if len(topics) < 3:
+        raise ValueError("Insufficient topics for ERC20 transfer event")
+
+    from_address = "0x" + topics[1][-40:]
+    to_address = "0x" + topics[2][-40:]
+
+    clean_data = data[2:] if data.startswith("0x") else data
+    raw_value = int(clean_data, 16) if clean_data else 0
+
+    return {
+        "from": from_address,
+        "to": to_address,
+        "value": raw_value,
+    }
