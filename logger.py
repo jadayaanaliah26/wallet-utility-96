@@ -1,31 +1,25 @@
 import logging
-import os
-from logging.handlers import RotatingFileHandler
-from pathlib import Path
+import sys
+from typing import Optional
 
-def setup_logger(name: str, log_file: str = "wallet.log") -> logging.Logger:
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
+class WalletLogger:
+    def __init__(self, name: str = "wallet-utility-96", level: int = logging.INFO):
+        self.logger = logging.getLogger(name)
+        self.logger.setLevel(level)
+        self._setup_handlers()
 
-    log_path = Path("logs")
-    log_path.mkdir(exist_ok=True)
+    def _setup_handlers(self) -> None:
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
+        stdout_handler = logging.StreamHandler(sys.stdout)
+        stdout_handler.setFormatter(formatter)
+        self.logger.addHandler(stdout_handler)
 
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
+    def get_logger(self) -> logging.Logger:
+        return self.logger
 
-    file_handler = RotatingFileHandler(
-        log_path / log_file,
-        maxBytes=5 * 1024 * 1024,
-        backupCount=5,
-        encoding="utf-8"
-    )
-    file_handler.setFormatter(formatter)
+def get_wallet_logger(name: str = "wallet-utility-96") -> logging.Logger:
+    return WalletLogger(name).get_logger()
 
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-
-    return logger
+logger = get_wallet_logger()
