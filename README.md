@@ -2,18 +2,18 @@
 
 # wallet-utility-96
 
-`wallet-utility-96` is a lightweight Python toolkit designed to automate multi-chain EVM wallet generation, balance tracking, and transaction batching. Built for quantitative traders and web3 developers, it streamlines programmatic asset management across Ethereum, Polygon, and Arbitrum networks.
+`wallet-utility-96` is a lightweight Python library designed to automate EVM wallet generation, balance tracking, and multi-chain transaction batching. It provides a unified asynchronous interface for interacting with Ethereum, Polygon, and Arbitrum RPC nodes securely.
 
 ## Features
 
-- **HD Wallet Derivation**: Generate hierarchical deterministic wallets using BIP-39 mnemonics and custom derivation paths.
-- **Multi-Chain Balance Aggregation**: Asynchronously query ETH, MATIC, and arbitrary ERC-20 token balances in a single request.
-- **Gas-Optimized Batching**: Package and broadcast multiple ERC-20 transfers concurrently to minimize gas overhead.
-- **AES-256 Storage**: Encrypt keypairs locally using AES-256-GCM before persisting to disk.
+* **Batch Balance Scanning:** Asynchronously fetch native asset and ERC-20 token balances across multiple chains simultaneously.
+* **HD Wallet Derivation:** Generate BIP-39 seed phrases and derive standard BIP-44 keypairs for multi-account management.
+* **EIP-1559 Fee Estimation:** Calculate real-time priority fees and max gas prices to prevent stuck transactions.
+* **Encrypted Vault Storage:** Secure private key payloads locally using AES-256-GCM authenticated encryption.
 
 ## Installation
 
-Install the package via `pip` from PyPI:
+Install the package via standard Python tools:
 
 ```bash
 pip install wallet-utility-96
@@ -27,33 +27,31 @@ cd wallet-utility-96
 pip install .
 ```
 
-## Quickstart
-
-The following example demonstrates how to create a new wallet, encrypt its credentials, and fetch current portfolio balances:
+## Basic Usage
 
 ```python
-from wallet_utility import KeyManager, WalletClient
+import asyncio
+from wallet_utility_96 import WalletManager
 
-# Initialize manager and generate a new HD wallet
-km = KeyManager()
-mnemonic, wallet = km.create_hd_wallet()
+async def main():
+    # Initialize client for Ethereum mainnet
+    manager = WalletManager(chain="ethereum", rpc_url="https://eth.llamarpc.com")
 
-print(f"Address: {wallet.address}")
-print(f"Mnemonic: {mnemonic}")
+    # Generate a new BIP-39 wallet
+    wallet = manager.create_wallet()
+    print(f"New Address: {wallet.address}")
 
-# Securely encrypt private key locally
-encrypted_data = km.encrypt_private_key(wallet.private_key, password="StrongPassword123")
+    # Fetch native ETH balance
+    balance = await manager.get_balance(wallet.address)
+    print(f"Balance: {balance.eth} ETH")
 
-# Query multi-chain ERC-20 balances
-client = WalletClient(provider_url="https://eth.llamarpc.com")
-balances = client.get_token_balances(
-    address=wallet.address,
-    tokens=["0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"]  # USDC Mainnet
-)
+    # Encrypt keyphrase to disk
+    manager.export_vault(wallet, password="SuperSecurePassword123", filepath="vault.json")
 
-print(balances)
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
 
 ## License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+Distributed under the MIT License. See `LICENSE` for details.
