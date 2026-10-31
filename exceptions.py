@@ -1,30 +1,27 @@
 class WalletError(Exception):
-    """Base exception for wallet-utility-96."""
-    pass
-
-class ValidationError(WalletError):
-    """Raised when input fails validation."""
-    pass
-
-class AddressFormatError(ValidationError):
-    """Raised for malformed crypto addresses."""
+    """Base exception for wallet-utility-96 operations."""
     pass
 
 class InsufficientFundsError(WalletError):
-    """Raised when balance is too low."""
-    pass
+    """Raised when wallet balance is below transaction requirement."""
+    def __init__(self, required: float, available: float) -> None:
+        super().__init__(f"Required {required}, but only {available} available.")
+        self.required = required
+        self.available = available
 
-def validate_address(address: str, chain: str) -> None:
-    if not address or len(address) < 26:
-        raise AddressFormatError(f"Invalid {chain} address format")
+class ConnectionTimeoutError(WalletError):
+    """Raised when blockchain node fails to respond."""
+    def __init__(self, endpoint: str, timeout: int) -> None:
+        super().__init__(f"Connection to {endpoint} timed out after {timeout}s.")
+        self.endpoint = endpoint
 
-def validate_amount(amount: float) -> None:
-    if amount <= 0:
-        raise ValidationError("Amount must be positive")
+class InvalidAddressError(WalletError):
+    """Raised when provided crypto address format is invalid."""
+    def __init__(self, address: str) -> None:
+        super().__init__(f"Invalid address format: {address}")
+        self.address = address
 
-def process_input(data: dict) -> None:
-    try:
-        validate_address(data.get("to"), data.get("chain"))
-        validate_amount(data.get("amount", 0))
-    except (AddressFormatError, ValidationError) as e:
-        raise ValidationError(f"Input validation failed: {str(e)}") from e
+class TransactionSigningError(WalletError):
+    """Raised during failure to sign cryptographic transactions."""
+    def __init__(self, message: str) -> None:
+        super().__init__(f"Signing failed: {message}")
