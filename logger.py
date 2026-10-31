@@ -1,25 +1,50 @@
 import logging
-import sys
-from typing import Optional
+import os
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
-class WalletLogger:
-    def __init__(self, name: str = "wallet-utility-96", level: int = logging.INFO):
-        self.logger = logging.getLogger(name)
-        self.logger.setLevel(level)
-        self._setup_handlers()
 
-    def _setup_handlers(self) -> None:
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
-        stdout_handler = logging.StreamHandler(sys.stdout)
-        stdout_handler.setFormatter(formatter)
-        self.logger.addHandler(stdout_handler)
+def setup_logger(
+    name: str = "wallet_utility",
+    log_dir: str = "logs",
+    log_file: str = "wallet.log",
+    level: int = logging.INFO,
+    max_bytes: int = 10_485_760,
+    backup_count: int = 5,
+) -> logging.Logger:
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
 
-    def get_logger(self) -> logging.Logger:
-        return self.logger
+    if logger.handlers:
+        return logger
 
-def get_wallet_logger(name: str = "wallet-utility-96") -> logging.Logger:
-    return WalletLogger(name).get_logger()
+    log_path = Path(log_dir)
+    log_path.mkdir(parents=True, exist_ok=True)
 
-logger = get_wallet_logger()
+    formatter = logging.Formatter(
+        "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    file_handler = RotatingFileHandler(
+        filename=log_path / log_file,
+        maxBytes=max_bytes,
+        backupCount=backup_count,
+        encoding="utf-8",
+    )
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(level)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    console_handler.setLevel(level)
+
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+
+    return logger
+
+
+def get_transaction_logger(tx_hash: str) -> logging.LoggerAdapter:
+    base_logger = logging.getLogger("wallet_utility.tx")
+    return logging.LoggerAdapter(base_logger, {"tx_hash": tx_hash})
