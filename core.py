@@ -1,44 +1,59 @@
-import hashlib
-from functools import lru_cache
-from typing import Dict, List, Tuple
+import re
+from decimal import Decimal, InvalidOperation
+from typing import Dict, Any, Optional
+
+
+class WalletError(Exception):
+    pass
+
+
+class InsufficientFundsError(WalletError):
+    pass
+
+
+class InvalidAddressError(WalletError):
+    pass
 
 
 class WalletCore:
-    def __init__(self, seed: bytes) -> None:
-        self._seed = seed
+    ADDRESS_REGEX = re.compile(r"^0x[a-fA-F0-9]{40}$")
 
-    @staticmethod
-    @lru_cache(maxsize=1024)
-    def derive_key(seed: bytes, index: int) -> bytes:
-        hasher = hashlib.sha256()
-        hasher.update(seed)
-        hasher.update(index.to_bytes(4, byteorder="big"))
-        return hashlib.pbkdf2_hmac("sha256", hasher.digest(), b"salt", 1000)
+    def __init__(self, initial_balances: Optional[Dict[str, Decimal]] = None):
+        self.balances: Dict[str, Decimal] = initial_balances or {}
 
-    @staticmethod
-    @lru_cache(maxsize=1024)
-    def generate_address(public_key: bytes) -> str:
-        sha = hashlib.sha256(public_key).digest()
-        ripemd = hashlib.new("ripemd160", sha).hexdigest()
-        return f"0x{ripemd}"
+    def validate_address(self, address: str) -> str:
+        if not isinstance(address, str) or not self.ADDRESS_REGEX.match(address):
+            raise InvalidAddressError(f"Invalid Ethereum address: {address}")
+        return address.lower()
 
-    def batch_derive_addresses(self, start_index: int, count: int) -> List[Dict[str, str]]:
-        results = []
-        for i in range(start_index, start_index + count):
-            private_key = self.derive_key(self._seed, i)
-            public_key = hashlib.sha256(private_key).digest()
-            address = self.generate_address(public_key)
-            results.append({"index": str(i), "address": address})
-        return results
+    def parse_amount(self, raw_amount: Any) -> Decimal:
+        try:
+            amount = Decimal(str(raw_amount))
+        except (InvalidOperation, TypeError, ValueError) as err:
+            raise WalletError(f"Cannot parse amount '{raw_amount}': {err}")
 
-    def verify_batch_signatures(self, items: List[Tuple[bytes, bytes, str]]) -> List[bool]:
-        cached_verifications: Dict[Tuple[bytes, bytes], bool] = {}
-        results = []
-        for msg, sig, expected_addr in items:
-            cache_key = (msg, sig)
-            if cache_key not in cached_verifications:
-                derived_hash = hashlib.sha256(msg + sig).digest()
-                addr = self.generate_address(derived_hash)
-                cached_verifications[cache_key] = addr == expected_addr
-            results.append(cached_verifications[cache_key])
-        return results
+        if amount <= Decimal("0"):
+            raise WalletError(f"Amount must be strictly positive: {amount}")
+
+        return amount
+
+    def transfer(self, sender: str, recipient: str, amount_raw: Any) -> Dict[str, Any]:
+        sender_clean = self.validate_address(sender)
+        recipient_clean = self.validate_address(recipient)
+        amount = self.parse_amount(amount_raw)
+
+        sender_balance = self.balances.get(sender_clean, Decimal("0"))
+        if sender_balance < amount:
+            raise InsufficientFundsError(
+                f"Sender {sender_clean} has {sender_balance}, needs {amount}"
+            )
+
+        self.balances[sender_clean] = sender_balance - amount
+        self.balances[recipient_clean] = self.balances.get(recipient_clean, Decimal("0")) + amount
+
+        return {
+            "status": "success",
+            "sender": sender_clean,
+            "recipient": recipient_clean,
+            "amount": amount,
+        }
