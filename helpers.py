@@ -1,33 +1,32 @@
-import re
+import hashlib
+from decimal import Decimal
+from typing import Union
 
-ADDRESS_PATTERN = re.compile(r'^(0x)?[0-9a-fA-F]{40}$')
+SATOSHI_PER_BITCOIN = 100_000_000
+WEI_PER_ETHER = 10**18
 
-def validate_address(address: str) -> bool:
-    return bool(ADDRESS_PATTERN.match(address))
 
-def validate_amount(amount: str) -> bool:
-    try:
-        val = float(amount)
-        return val > 0
-    except (ValueError, TypeError):
-        return False
+def satoshi_to_btc(satoshi: int) -> Decimal:
+    return Decimal(satoshi) / Decimal(SATOSHI_PER_BITCOIN)
 
-def sanitize_input(data: dict) -> dict:
-    return {
-        k: str(v).strip() 
-        for k, v in data.items() 
-        if v is not None
-    }
 
-def process_transaction_data(raw_data: dict):
-    data = sanitize_input(raw_data)
-    addr = data.get('address')
-    amt = data.get('amount')
-    
-    if not addr or not validate_address(addr):
-        raise ValueError(f'invalid address: {addr}')
-    
-    if not amt or not validate_amount(amt):
-        raise ValueError(f'invalid amount: {amt}')
-        
-    return {'address': addr, 'amount': float(amt)}
+def btc_to_satoshi(btc: Union[float, str, Decimal]) -> int:
+    return int(Decimal(str(btc)) * SATOSHI_PER_BITCOIN)
+
+
+def wei_to_ether(wei: int) -> Decimal:
+    return Decimal(wei) / Decimal(WEI_PER_ETHER)
+
+
+def ether_to_wei(ether: Union[float, str, Decimal]) -> int:
+    return int(Decimal(str(ether)) * WEI_PER_ETHER)
+
+
+def truncate_address(address: str, prefix_len: int = 6, suffix_len: int = 4) -> str:
+    if len(address) <= prefix_len + suffix_len:
+        return address
+    return f"{address[:prefix_len]}...{address[-suffix_len:]}"
+
+
+def double_sha256(data: bytes) -> bytes:
+    return hashlib.sha256(hashlib.sha256(data).digest()).digest()
