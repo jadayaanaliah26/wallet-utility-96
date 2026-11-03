@@ -1,5 +1,5 @@
 import logging
-import os
+import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -9,7 +9,7 @@ def setup_logger(
     log_dir: str = "logs",
     log_file: str = "wallet.log",
     level: int = logging.INFO,
-    max_bytes: int = 10_485_760,
+    max_bytes: int = 5 * 1024 * 1024,
     backup_count: int = 5,
 ) -> logging.Logger:
     logger = logging.getLogger(name)
@@ -27,7 +27,7 @@ def setup_logger(
     )
 
     file_handler = RotatingFileHandler(
-        filename=log_path / log_file,
+        log_path / log_file,
         maxBytes=max_bytes,
         backupCount=backup_count,
         encoding="utf-8",
@@ -35,7 +35,7 @@ def setup_logger(
     file_handler.setFormatter(formatter)
     file_handler.setLevel(level)
 
-    console_handler = logging.StreamHandler()
+    console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(formatter)
     console_handler.setLevel(level)
 
@@ -45,6 +45,10 @@ def setup_logger(
     return logger
 
 
-def get_transaction_logger(tx_hash: str) -> logging.LoggerAdapter:
-    base_logger = logging.getLogger("wallet_utility.tx")
-    return logging.LoggerAdapter(base_logger, {"tx_hash": tx_hash})
+def get_logger(module_name: str | None = None) -> logging.Logger:
+    base_logger = logging.getLogger("wallet_utility")
+    if not base_logger.handlers:
+        setup_logger()
+    if module_name:
+        return base_logger.getChild(module_name)
+    return base_logger
