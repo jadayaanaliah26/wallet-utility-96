@@ -1,28 +1,57 @@
-import time
-import functools
-from typing import Callable, Any, Type
+from typing import Dict, Any, List, Optional
+import hashlib
+import json
 
-def retry_operation(retries: int = 3, delay: float = 1.0, exceptions: tuple = (Exception,)):
-    def decorator(func: Callable):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            last_exception = None
-            for attempt in range(retries):
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as e:
-                    last_exception = e
-                    time.sleep(delay * (2 ** attempt))
-            raise last_exception
-        return wrapper
-    return decorator
 
-@retry_operation(retries=3, delay=0.5)
-def fetch_balance(address: str) -> float:
-    # Simulated network call
-    return 0.0
+class TransactionProcessor:
+    """Processes and validates raw cryptocurrency transaction payloads."""
 
-class NetworkProcessor:
-    @retry_operation(retries=5)
-    def broadcast_transaction(self, tx_data: dict) -> str:
-        return "success"
+    def __init__(self, chain_id: int = 1) -> None:
+        self.chain_id = chain_id
+
+    def normalize_address(self, address: str) -> str:
+        """Formats address to standard lowercase representation.
+
+        Args:
+            address: Raw wallet address string.
+
+        Returns:
+            Normalized address string.
+        """
+        address = address.strip()
+        if address.startswith("0x"):
+            return address.lower()
+        return address
+
+    def calculate_tx_hash(self, tx_data: Dict[str, Any]) -> str:
+        """Generates SHA-256 hash representation of transaction data.
+
+        Args:
+            tx_data: Dictionary containing transaction details.
+
+        Returns:
+            Hexadecimal hash string.
+        """
+        serialized = json.dumps(tx_data, sort_keys=True).encode("utf-8")
+        return hashlib.sha256(serialized).hexdigest()
+
+    def process_batch(self, transactions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Processes a list of raw transaction objects.
+
+        Args:
+            transactions: List of raw transaction dictionaries.
+
+        Returns:
+            List of processed transactions with calculated hashes.
+        """
+        processed: List[Dict[str, Any]] = []
+        for tx in transactions:
+            item = tx.copy()
+            if "from" in item and isinstance(item["from"], str):
+                item["from"] = self.normalize_address(item["from"])
+            if "to" in item and isinstance(item["to"], str):
+                item["to"] = self.normalize_address(item["to"])
+            item["chain_id"] = self.chain_id
+            item["tx_hash"] = self.calculate_tx_hash(item)
+            processed.append(item)
+        return processed
