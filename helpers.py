@@ -1,32 +1,24 @@
 import hashlib
-from decimal import Decimal
-from typing import Union
+from typing import Optional
 
-SATOSHI_PER_BITCOIN = 100_000_000
-WEI_PER_ETHER = 10**18
+def generate_address(public_key: bytes) -> str:
+    """Generate a hex-encoded SHA-256 address from public key."""
+    return hashlib.sha256(public_key).hexdigest()
 
+def validate_checksum(data: str, checksum: str) -> bool:
+    """Verify data integrity against a provided SHA-256 checksum."""
+    return hashlib.sha256(data.encode()).hexdigest() == checksum
 
-def satoshi_to_btc(satoshi: int) -> Decimal:
-    return Decimal(satoshi) / Decimal(SATOSHI_PER_BITCOIN)
+def format_amount(amount: float, precision: int = 8) -> str:
+    """Convert float amount to string with fixed decimal precision."""
+    return f"{amount:.{precision}f}"
 
+def parse_derivation_path(path: str) -> list[int]:
+    """Convert BIP32 derivation path string to integer sequence."""
+    return [int(x.replace("'", "")) for x in path.split("/")[1:]]
 
-def btc_to_satoshi(btc: Union[float, str, Decimal]) -> int:
-    return int(Decimal(str(btc)) * SATOSHI_PER_BITCOIN)
-
-
-def wei_to_ether(wei: int) -> Decimal:
-    return Decimal(wei) / Decimal(WEI_PER_ETHER)
-
-
-def ether_to_wei(ether: Union[float, str, Decimal]) -> int:
-    return int(Decimal(str(ether)) * WEI_PER_ETHER)
-
-
-def truncate_address(address: str, prefix_len: int = 6, suffix_len: int = 4) -> str:
-    if len(address) <= prefix_len + suffix_len:
-        return address
-    return f"{address[:prefix_len]}...{address[-suffix_len:]}"
-
-
-def double_sha256(data: bytes) -> bytes:
-    return hashlib.sha256(hashlib.sha256(data).digest()).digest()
+def sanitize_memo(memo: Optional[str]) -> str:
+    """Normalize transaction memo string for protocol requirements."""
+    if not memo:
+        return ""
+    return memo.strip()[:64]
