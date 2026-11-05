@@ -1,24 +1,32 @@
-import hashlib
-from typing import Optional
+import json
+import os
+from typing import Any, Dict
 
-def generate_address(public_key: bytes) -> str:
-    """Generate a hex-encoded SHA-256 address from public key."""
-    return hashlib.sha256(public_key).hexdigest()
+class ConfigLoader:
+    DEFAULT_CONFIG = {
+        "network": "mainnet",
+        "rpc_url": "https://api.mainnet-beta.solana.com",
+        "timeout": 30,
+        "retry_attempts": 3
+    }
 
-def validate_checksum(data: str, checksum: str) -> bool:
-    """Verify data integrity against a provided SHA-256 checksum."""
-    return hashlib.sha256(data.encode()).hexdigest() == checksum
+    def __init__(self, config_path: str = "config.json"):
+        self.config_path = config_path
+        self.config = self._load()
 
-def format_amount(amount: float, precision: int = 8) -> str:
-    """Convert float amount to string with fixed decimal precision."""
-    return f"{amount:.{precision}f}"
+    def _load(self) -> Dict[str, Any]:
+        if not os.path.exists(self.config_path):
+            return self.DEFAULT_CONFIG
+        
+        try:
+            with open(self.config_path, "r") as f:
+                user_config = json.load(f)
+                return {**self.DEFAULT_CONFIG, **user_config}
+        except (json.JSONDecodeError, IOError):
+            return self.DEFAULT_CONFIG
 
-def parse_derivation_path(path: str) -> list[int]:
-    """Convert BIP32 derivation path string to integer sequence."""
-    return [int(x.replace("'", "")) for x in path.split("/")[1:]]
+    def get(self, key: str, default: Any = None) -> Any:
+        return self.config.get(key, default)
 
-def sanitize_memo(memo: Optional[str]) -> str:
-    """Normalize transaction memo string for protocol requirements."""
-    if not memo:
-        return ""
-    return memo.strip()[:64]
+def load_app_config(path: str = "config.json") -> ConfigLoader:
+    return ConfigLoader(path)
