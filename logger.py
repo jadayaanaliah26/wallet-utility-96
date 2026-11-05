@@ -1,54 +1,24 @@
 import logging
 import sys
-from logging.handlers import RotatingFileHandler
-from pathlib import Path
+from typing import Optional
 
+class WalletLogger:
+    def __init__(self, name: str, level: int = logging.INFO):
+        self.logger = logging.getLogger(name)
+        self.logger.setLevel(level)
+        self._setup_handler()
 
-def setup_logger(
-    name: str = "wallet_utility",
-    log_dir: str = "logs",
-    log_file: str = "wallet.log",
-    level: int = logging.INFO,
-    max_bytes: int = 5 * 1024 * 1024,
-    backup_count: int = 5,
-) -> logging.Logger:
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
+    def _setup_handler(self) -> None:
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(formatter)
+        if not self.logger.handlers:
+            self.logger.addHandler(handler)
 
-    if logger.handlers:
-        return logger
+    def get_logger(self) -> logging.Logger:
+        return self.logger
 
-    log_path = Path(log_dir)
-    log_path.mkdir(parents=True, exist_ok=True)
-
-    formatter = logging.Formatter(
-        "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-    file_handler = RotatingFileHandler(
-        log_path / log_file,
-        maxBytes=max_bytes,
-        backupCount=backup_count,
-        encoding="utf-8",
-    )
-    file_handler.setFormatter(formatter)
-    file_handler.setLevel(level)
-
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(formatter)
-    console_handler.setLevel(level)
-
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-
-    return logger
-
-
-def get_logger(module_name: str | None = None) -> logging.Logger:
-    base_logger = logging.getLogger("wallet_utility")
-    if not base_logger.handlers:
-        setup_logger()
-    if module_name:
-        return base_logger.getChild(module_name)
-    return base_logger
+def get_wallet_logger(name: str = "wallet-utility-96") -> logging.Logger:
+    return WalletLogger(name).get_logger()
