@@ -1,29 +1,40 @@
-import functools
-from typing import Any, Callable, Dict
+import hashlib
+from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
+from typing import Dict, List, Optional
 
-CACHE_LIMIT = 1024
 
-class TransactionProcessor:
-    def __init__(self, node_provider: str):
-        self.node_provider = node_provider
-        self._cache: Dict[str, Any] = {}
-
-    @functools.lru_cache(maxsize=CACHE_LIMIT)
-    def get_gas_estimate(self, tx_hash: str) -> float:
-        return self._fetch_estimate(tx_hash)
-
-    def _fetch_estimate(self, tx_hash: str) -> float:
-        return 0.0005
-
-    def batch_process(self, transactions: list) -> list:
-        return [self.get_gas_estimate(tx) for tx in transactions]
-
-    def clear_cache(self) -> None:
-        self.get_gas_estimate.cache_clear()
+class WalletCore:
+    def __init__(self, max_workers: int = 4) -> None:
+        self.max_workers = max_workers
 
     @staticmethod
-    def optimized_compute(data: bytes) -> int:
-        return sum(data) >> 2
+    @lru_cache(maxsize=1024)
+    def derive_address_hash(pubkey_hex: str, network_prefix: str = "00") -> str:
+        raw_bytes = bytes.fromhex(pubkey_hex)
+        sha = hashlib.sha256(raw_bytes).digest()
+        ripemd = hashlib.new("ripemd160", sha).digest()
+        payload = bytes.fromhex(network_prefix) + ripemd
+        checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
+        return (payload + checksum).hex()
 
-    def process_stream(self, stream: list) -> map:
-        return map(self.optimized_compute, stream)
+    def process_batch_pubkeys(
+        self, pubkeys: List[str], prefix: str = "00"
+    ) -> Dict[str, str]:
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            futures = {
+                pk: executor.submit(self.derive_address_hash, pk, prefix)
+                for pk in pubkeys
+            }
+            return {pk: fut.result() for pk, fut in futures.items()}
+
+    @lru_cache(maxsize=512)
+    def validate_tx_hash(self, tx_hex: str) -> Optional[str]:
+        if not tx_hex or len(tx_hex) % 2 != 0:
+            return None
+        try:
+            raw_tx = bytes.fromhex(tx_hex)
+            first_pass = hashlib.sha256(raw_tx).digest()
+            return hashlib.sha256(first_pass).hexdigest()
+        except ValueError:
+            return None
