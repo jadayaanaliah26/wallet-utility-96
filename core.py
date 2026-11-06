@@ -1,35 +1,24 @@
 import hashlib
-from functools import lru_cache
-from typing import List, Tuple
+import base58
+from typing import Optional
 
+def validate_address(address: str, prefix: str = '1') -> bool:
+    try:
+        decoded = base58.b58decode_check(address)
+        return decoded.startswith(prefix.encode())
+    except Exception:
+        return False
 
-class WalletCore:
-    def __init__(self, seed: bytes):
-        self.seed = seed
+def generate_checksum(data: bytes) -> str:
+    return hashlib.sha256(hashlib.sha256(data).digest()).hexdigest()
 
-    @staticmethod
-    @lru_cache(maxsize=4096)
-    def _hash160(pub_key: bytes) -> bytes:
-        sha = hashlib.sha256(pub_key).digest()
-        rip = hashlib.new("ripemd160")
-        rip.update(sha)
-        return rip.digest()
+def format_wei(value: int, decimals: int = 18) -> float:
+    return float(value) / (10 ** decimals)
 
-    @lru_cache(maxsize=2048)
-    def derive_child_key(self, parent_key: bytes, index: int) -> bytes:
-        data = parent_key + index.to_bytes(4, byteorder="big")
-        return hashlib.pbkdf2_hmac("sha512", self.seed, data, iterations=100)
+def mask_address(address: str) -> str:
+    if len(address) < 10:
+        return address
+    return f"{address[:6]}...{address[-4:]}"
 
-    def batch_derive_addresses(
-        self, parent_key: bytes, start_idx: int, count: int
-    ) -> List[Tuple[int, str]]:
-        results = []
-        for i in range(start_idx, start_idx + count):
-            child = self.derive_child_key(parent_key, i)
-            h160 = self._hash160(child)
-            results.append((i, h160.hex()))
-        return results
-
-    def clear_cache(self) -> None:
-        self._hash160.cache_clear()
-        self.derive_child_key.cache_clear()
+def derive_derivation_path(index: int) -> str:
+    return f"m/44'/60'/0'/0/{index}"
