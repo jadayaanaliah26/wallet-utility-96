@@ -1,32 +1,34 @@
-import json
-import os
-from typing import Any, Dict
+import logging
+from typing import Any, Optional
 
-class ConfigLoader:
-    DEFAULT_CONFIG = {
-        "network": "mainnet",
-        "rpc_url": "https://api.mainnet-beta.solana.com",
-        "timeout": 30,
-        "retry_attempts": 3
-    }
+logger = logging.getLogger(__name__)
 
-    def __init__(self, config_path: str = "config.json"):
-        self.config_path = config_path
-        self.config = self._load()
+class WalletError(Exception):
+    pass
 
-    def _load(self) -> Dict[str, Any]:
-        if not os.path.exists(self.config_path):
-            return self.DEFAULT_CONFIG
-        
-        try:
-            with open(self.config_path, "r") as f:
-                user_config = json.load(f)
-                return {**self.DEFAULT_CONFIG, **user_config}
-        except (json.JSONDecodeError, IOError):
-            return self.DEFAULT_CONFIG
+def validate_address(address: str) -> bool:
+    if not isinstance(address, str) or len(address) < 26 or len(address) > 42:
+        return False
+    return address.startswith('0x')
 
-    def get(self, key: str, default: Any = None) -> Any:
-        return self.config.get(key, default)
+def safe_execute(func: callable, *args: Any, **kwargs: Any) -> Optional[Any]:
+    try:
+        return func(*args, **kwargs)
+    except (ValueError, TypeError) as e:
+        logger.error(f"Invalid input for {func.__name__}: {e}")
+        return None
+    except ConnectionError as e:
+        logger.critical(f"Network failure in {func.__name__}: {e}")
+        raise WalletError("Remote node unreachable") from e
+    except Exception as e:
+        logger.exception(f"Unexpected failure in {func.__name__}: {e}")
+        return None
 
-def load_app_config(path: str = "config.json") -> ConfigLoader:
-    return ConfigLoader(path)
+def format_wei(value: Any) -> int:
+    try:
+        val = int(value)
+        if val < 0:
+            raise ValueError("Negative balance provided")
+        return val
+    except (ValueError, TypeError):
+        return 0
