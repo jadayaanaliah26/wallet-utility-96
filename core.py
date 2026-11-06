@@ -1,40 +1,35 @@
 import hashlib
-from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
-from typing import Dict, List, Optional
+from typing import List, Tuple
 
 
 class WalletCore:
-    def __init__(self, max_workers: int = 4) -> None:
-        self.max_workers = max_workers
+    def __init__(self, seed: bytes):
+        self.seed = seed
 
     @staticmethod
-    @lru_cache(maxsize=1024)
-    def derive_address_hash(pubkey_hex: str, network_prefix: str = "00") -> str:
-        raw_bytes = bytes.fromhex(pubkey_hex)
-        sha = hashlib.sha256(raw_bytes).digest()
-        ripemd = hashlib.new("ripemd160", sha).digest()
-        payload = bytes.fromhex(network_prefix) + ripemd
-        checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
-        return (payload + checksum).hex()
+    @lru_cache(maxsize=4096)
+    def _hash160(pub_key: bytes) -> bytes:
+        sha = hashlib.sha256(pub_key).digest()
+        rip = hashlib.new("ripemd160")
+        rip.update(sha)
+        return rip.digest()
 
-    def process_batch_pubkeys(
-        self, pubkeys: List[str], prefix: str = "00"
-    ) -> Dict[str, str]:
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            futures = {
-                pk: executor.submit(self.derive_address_hash, pk, prefix)
-                for pk in pubkeys
-            }
-            return {pk: fut.result() for pk, fut in futures.items()}
+    @lru_cache(maxsize=2048)
+    def derive_child_key(self, parent_key: bytes, index: int) -> bytes:
+        data = parent_key + index.to_bytes(4, byteorder="big")
+        return hashlib.pbkdf2_hmac("sha512", self.seed, data, iterations=100)
 
-    @lru_cache(maxsize=512)
-    def validate_tx_hash(self, tx_hex: str) -> Optional[str]:
-        if not tx_hex or len(tx_hex) % 2 != 0:
-            return None
-        try:
-            raw_tx = bytes.fromhex(tx_hex)
-            first_pass = hashlib.sha256(raw_tx).digest()
-            return hashlib.sha256(first_pass).hexdigest()
-        except ValueError:
-            return None
+    def batch_derive_addresses(
+        self, parent_key: bytes, start_idx: int, count: int
+    ) -> List[Tuple[int, str]]:
+        results = []
+        for i in range(start_idx, start_idx + count):
+            child = self.derive_child_key(parent_key, i)
+            h160 = self._hash160(child)
+            results.append((i, h160.hex()))
+        return results
+
+    def clear_cache(self) -> None:
+        self._hash160.cache_clear()
+        self.derive_child_key.cache_clear()
