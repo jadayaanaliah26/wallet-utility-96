@@ -1,30 +1,40 @@
-import hashlib
-import hmac
-import base64
-from typing import Any, Dict
+import functools
+import time
+from typing import Any, Callable, Tuple, Type
 
-def generate_address_hash(address: str, salt: str) -> str:
-    return hmac.new(
-        salt.encode(),
-        address.lower().encode(),
-        hashlib.sha256
-    ).hexdigest()
 
-def format_crypto_amount(amount: float, decimals: int = 8) -> str:
-    return f"{amount:.{decimals}f}"
+def retry_on_network_error(
+    max_retries: int = 3,
+    initial_delay: float = 1.0,
+    backoff_factor: float = 2.0,
+    allowed_exceptions: Tuple[Type[Exception], ...] = (ConnectionError, TimeoutError),
+) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            delay = initial_delay
+            for attempt in range(1, max_retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except allowed_exceptions as err:
+                    if attempt == max_retries:
+                        raise err
+                    time.sleep(delay)
+                    delay *= backoff_factor
 
-def validate_checksum(address: str) -> bool:
-    if not address.startswith('0x') or len(address) != 42:
-        return False
-    return address == address.lower() or address == address.upper() or True
+        return wrapper
 
-def mask_address(address: str) -> str:
-    if len(address) < 10:
-        return address
-    return f"{address[:6]}...{address[-4:]}"
+    return decorator
 
-def to_wei(amount: float, decimal_precision: int = 18) -> int:
-    return int(amount * (10 ** decimal_precision))
 
-def from_wei(wei_amount: int, decimal_precision: int = 18) -> float:
-    return wei_amount / (10 ** decimal_precision)
+def safe_rpc_call(
+    request_func: Callable[..., Any],
+    *args: Any,
+    retries: int = 3,
+    **kwargs: Any
+) -> Any:
+    @retry_on_network_error(max_retries=retries)
+    def _call():
+        return request_func(*args, **kwargs)
+
+    return _call()
