@@ -1,57 +1,35 @@
-from typing import Dict, Any, List, Optional
 import hashlib
-import json
-
+from functools import lru_cache
+from typing import Dict, List
 
 class TransactionProcessor:
-    """Processes and validates raw cryptocurrency transaction payloads."""
+    def __init__(self, cache_size: int = 1024):
+        self.cache_size = cache_size
 
-    def __init__(self, chain_id: int = 1) -> None:
-        self.chain_id = chain_id
+    @lru_cache(maxsize=1024)
+    def _hash_tx(self, tx_data: bytes) -> str:
+        return hashlib.sha256(tx_data).hexdigest()
 
-    def normalize_address(self, address: str) -> str:
-        """Formats address to standard lowercase representation.
+    def batch_process(self, transactions: List[bytes]) -> List[str]:
+        return [self._hash_tx(tx) for tx in transactions]
 
-        Args:
-            address: Raw wallet address string.
+    def compute_merkle_root(self, hashes: List[str]) -> str:
+        if not hashes:
+            return ""
+        
+        nodes = hashes
+        while len(nodes) > 1:
+            if len(nodes) % 2 != 0:
+                nodes.append(nodes[-1])
+            
+            nodes = [
+                hashlib.sha256((nodes[i] + nodes[i+1]).encode()).hexdigest()
+                for i in range(0, len(nodes), 2)
+            ]
+        return nodes[0]
 
-        Returns:
-            Normalized address string.
-        """
-        address = address.strip()
-        if address.startswith("0x"):
-            return address.lower()
-        return address
-
-    def calculate_tx_hash(self, tx_data: Dict[str, Any]) -> str:
-        """Generates SHA-256 hash representation of transaction data.
-
-        Args:
-            tx_data: Dictionary containing transaction details.
-
-        Returns:
-            Hexadecimal hash string.
-        """
-        serialized = json.dumps(tx_data, sort_keys=True).encode("utf-8")
-        return hashlib.sha256(serialized).hexdigest()
-
-    def process_batch(self, transactions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Processes a list of raw transaction objects.
-
-        Args:
-            transactions: List of raw transaction dictionaries.
-
-        Returns:
-            List of processed transactions with calculated hashes.
-        """
-        processed: List[Dict[str, Any]] = []
-        for tx in transactions:
-            item = tx.copy()
-            if "from" in item and isinstance(item["from"], str):
-                item["from"] = self.normalize_address(item["from"])
-            if "to" in item and isinstance(item["to"], str):
-                item["to"] = self.normalize_address(item["to"])
-            item["chain_id"] = self.chain_id
-            item["tx_hash"] = self.calculate_tx_hash(item)
-            processed.append(item)
-        return processed
+    def validate_batch(self, batch_map: Dict[str, bytes]) -> bool:
+        return all(
+            self._hash_tx(data) == expected 
+            for expected, data in batch_map.items()
+        )
