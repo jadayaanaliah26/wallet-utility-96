@@ -1,46 +1,23 @@
-from decimal import Decimal, ROUND_DOWN
-import re
+import time
+import functools
+import logging
+from typing import Callable, Any
 
-EVM_ADDRESS_PATTERN = re.compile(r"^0x[a-fA-F0-9]{40}$")
+logger = logging.getLogger(__name__)
 
-
-def format_address(address: str, chars: int = 4) -> str:
-    if not address or len(address) < (chars * 2 + 2):
-        return address
-    return f"{address[:chars + 2]}...{address[-chars:]}"
-
-
-def to_base_unit(amount: str | float | Decimal, decimals: int = 18) -> int:
-    val = Decimal(str(amount))
-    factor = Decimal(10) ** decimals
-    return int((val * factor).quantize(Decimal("1"), rounding=ROUND_DOWN))
-
-
-def from_base_unit(amount: int, decimals: int = 18) -> Decimal:
-    val = Decimal(amount)
-    factor = Decimal(10) ** decimals
-    return val / factor
-
-
-def is_valid_evm_address(address: str) -> bool:
-    return bool(EVM_ADDRESS_PATTERN.match(address))
-
-
-def parse_transfer_log(raw_log: dict) -> dict:
-    topics = raw_log.get("topics", [])
-    data = raw_log.get("data", "0x")
-
-    if len(topics) < 3:
-        raise ValueError("Insufficient topics for ERC20 transfer event")
-
-    from_address = "0x" + topics[1][-40:]
-    to_address = "0x" + topics[2][-40:]
-
-    clean_data = data[2:] if data.startswith("0x") else data
-    raw_value = int(clean_data, 16) if clean_data else 0
-
-    return {
-        "from": from_address,
-        "to": to_address,
-        "value": raw_value,
-    }
+def retry_network_op(retries: int = 3, delay: float = 1.0):
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            last_exception = None
+            for attempt in range(retries):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    last_exception = e
+                    logger.warning(f"attempt {attempt + 1} failed: {e}")
+                    if attempt < retries - 1:
+                        time.sleep(delay * (2 ** attempt))
+            raise last_exception
+        return wrapper
+    return decorator
