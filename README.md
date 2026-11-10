@@ -1,57 +1,47 @@
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
 # wallet-utility-96
 
-`wallet-utility-96` is a lightweight Python library designed to automate EVM wallet generation, balance tracking, and multi-chain transaction batching. It provides a unified asynchronous interface for interacting with Ethereum, Polygon, and Arbitrum RPC nodes securely.
+A high-performance Python toolkit designed for secure cryptocurrency wallet management and transaction processing. It provides a streamlined interface for interacting with blockchain assets, focusing on developer efficiency and security.
 
-## Features
+### Features
 
-* **Batch Balance Scanning:** Asynchronously fetch native asset and ERC-20 token balances across multiple chains simultaneously.
-* **HD Wallet Derivation:** Generate BIP-39 seed phrases and derive standard BIP-44 keypairs for multi-account management.
-* **EIP-1559 Fee Estimation:** Calculate real-time priority fees and max gas prices to prevent stuck transactions.
-* **Encrypted Vault Storage:** Secure private key payloads locally using AES-256-GCM authenticated encryption.
+*   **Multi-Chain Support:** Native integration for automated address generation and balance tracking across EVM-compatible chains.
+*   **Secure Key Handling:** Implements industry-standard encryption for local keystore management and private key derivation.
+*   **Transaction Batching:** Optimized utilities for bundling multiple operations to reduce gas overhead and execution time.
+*   **Web3 Integration:** Built-in connection layer for seamless interaction with RPC nodes and decentralized protocols.
 
-## Installation
+### Installation
 
-Install the package via standard Python tools:
-
-```bash
-pip install wallet-utility-96
-```
-
-Or install directly from the source repository:
+Ensure you have Python 3.10+ installed. Clone the repository and set up a virtual environment:
 
 ```bash
 git clone https://github.com/Developer/wallet-utility-96.git
 cd wallet-utility-96
-pip install .
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 ```
 
-## Basic Usage
+### Usage
+
+Initialize the utility to generate a new wallet and check the balance of a specific address:
 
 ```python
-import asyncio
-from wallet_utility_96 import WalletManager
+from wallet_utility import WalletManager
 
-async def main():
-    # Initialize client for Ethereum mainnet
-    manager = WalletManager(chain="ethereum", rpc_url="https://eth.llamarpc.com")
+# Initialize manager
+manager = WalletManager(network="mainnet")
 
-    # Generate a new BIP-39 wallet
-    wallet = manager.create_wallet()
-    print(f"New Address: {wallet.address}")
+# Create a new encrypted wallet
+wallet = manager.create_wallet(password="your-secure-password")
+print(f"Address: {wallet.address}")
 
-    # Fetch native ETH balance
-    balance = await manager.get_balance(wallet.address)
-    print(f"Balance: {balance.eth} ETH")
-
-    # Encrypt keyphrase to disk
-    manager.export_vault(wallet, password="SuperSecurePassword123", filepath="vault.json")
-
-if __name__ == "__main__":
-    asyncio.run(main())
+# Retrieve balance
+balance = manager.get_balance(wallet.address)
+print(f"Current Balance: {balance} ETH")
 ```
 
-## License
+### License
 
-Distributed under the MIT License. See `LICENSE` for details.
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
+Distributed under the MIT License. See `LICENSE` for more information.
