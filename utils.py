@@ -1,23 +1,27 @@
-import time
 import functools
-import logging
-from typing import Callable, Any
+from typing import Callable, Any, Dict
 
-logger = logging.getLogger(__name__)
+class CacheManager:
+    def __init__(self, max_size: int = 128):
+        self.max_size = max_size
+        self.cache: Dict[tuple, Any] = {}
 
-def retry_network_op(retries: int = 3, delay: float = 1.0):
-    def decorator(func: Callable):
+    def memoize(self, func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
-            last_exception = None
-            for attempt in range(retries):
-                try:
-                    return func(*args, **kwargs)
-                except Exception as e:
-                    last_exception = e
-                    logger.warning(f"attempt {attempt + 1} failed: {e}")
-                    if attempt < retries - 1:
-                        time.sleep(delay * (2 ** attempt))
-            raise last_exception
+            key = (func.__name__, args, frozenset(kwargs.items()))
+            if key not in self.cache:
+                if len(self.cache) >= self.max_size:
+                    self.cache.pop(next(iter(self.cache)))
+                self.cache[key] = func(*args, **kwargs)
+            return self.cache[key]
         return wrapper
-    return decorator
+
+cache_manager = CacheManager()
+
+def batch_process(items: list, chunk_size: int = 100):
+    for i in range(0, len(items), chunk_size):
+        yield items[i:i + chunk_size]
+
+def compute_hash_sum(data: bytes) -> int:
+    return hash(data) & 0xffffffffffffffff
