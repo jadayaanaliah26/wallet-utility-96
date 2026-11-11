@@ -1,21 +1,52 @@
-from typing import Final
+from typing import Any, Dict
 
-RPC_TIMEOUT: Final[int] = 30
-MAX_RETRIES: Final[int] = 3
-GAS_LIMIT_BUFFER: Final[float] = 1.2
+DEFAULT_TIMEOUT = 30
+MAX_RETRIES = 3
 
-CURRENCIES: Final[list[str]] = ['BTC', 'ETH', 'SOL']
-NETWORKS: Final[dict[str, str]] = {
-    'mainnet': 'https://api.mainnet.network',
-    'testnet': 'https://api.testnet.network'
+SUPPORTED_CHAINS: Dict[str, Dict[str, Any]] = {
+    "ethereum": {
+        "chain_id": 1,
+        "symbol": "ETH",
+        "decimals": 18,
+        "explorer": "https://etherscan.io",
+        "default_rpc": "https://eth.llamarpc.com",
+    },
+    "polygon": {
+        "chain_id": 137,
+        "symbol": "MATIC",
+        "decimals": 18,
+        "explorer": "https://polygonscan.com",
+        "default_rpc": "https://polygon-rpc.com",
+    },
+    "arbitrum": {
+        "chain_id": 42161,
+        "symbol": "ETH",
+        "decimals": 18,
+        "explorer": "https://arbiscan.io",
+        "default_rpc": "https://arb1.arbitrum.io/rpc",
+    },
+    "solana": {
+        "chain_id": None,
+        "symbol": "SOL",
+        "decimals": 9,
+        "explorer": "https://explorer.solana.com",
+        "default_rpc": "https://api.mainnet-beta.solana.com",
+    },
 }
 
-ERROR_MESSAGES: Final[dict[str, str]] = {
-    'insufficient_funds': 'wallet balance below required threshold',
-    'connection_error': 'failed to establish network connection',
-    'invalid_address': 'provided destination address is malformed'
+ADDRESS_PATTERNS = {
+    "evm": r"^0x[a-fA-F0-9]{40}$",
+    "solana": r"^[1-9A-HJ-NP-Za-km-z]{32,44}$",
+    "bitcoin_legacy": r"^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$",
+    "bitcoin_bech32": r"^bc1[a-02-9ac-hj-np-z]{38,59}$",
 }
 
-DB_TABLE_NAME: Final[str] = 'wallet_transactions'
-DEFAULT_ENCODING: Final[str] = 'utf-8'
-LOG_FORMAT: Final[str] = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+GWEI_UNIT = 10**9
+WEI_UNIT = 10**18
+
+
+def get_chain_config(chain_name: str) -> Dict[str, Any]:
+    chain_key = chain_name.lower().strip()
+    if chain_key not in SUPPORTED_CHAINS:
+        raise ValueError(f"Unsupported chain: {chain_name}")
+    return SUPPORTED_CHAINS[chain_key]
