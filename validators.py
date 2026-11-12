@@ -1,18 +1,26 @@
-import re
+import time
+import functools
+from typing import Callable, Any
 
-ADDRESS_PATTERN = re.compile(r'^0x[a-fA-F0-9]{40}$')
+def retry_network_op(retries: int = 3, delay: float = 1.0):
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            last_exception = None
+            for attempt in range(retries):
+                try:
+                    return func(*args, **kwargs)
+                except (ConnectionError, TimeoutError) as e:
+                    last_exception = e
+                    time.sleep(delay * (2 ** attempt))
+            raise last_exception
+        return wrapper
+    return decorator
 
-def validate_address(address: str) -> bool:
-    return bool(ADDRESS_PATTERN.match(address))
+@retry_network_op(retries=3, delay=0.5)
+def fetch_balance(address: str) -> float:
+    pass
 
-def validate_amount(amount: float) -> bool:
-    return isinstance(amount, (int, float)) and amount > 0
-
-def validate_chain_id(chain_id: int) -> bool:
-    return isinstance(chain_id, int) and chain_id > 0
-
-def format_wei_to_eth(wei: int) -> float:
-    return wei / 10**18
-
-def validate_transaction_data(address: str, amount: float) -> bool:
-    return validate_address(address) and validate_amount(amount)
+@retry_network_op(retries=5, delay=1.0)
+def broadcast_transaction(tx_data: dict) -> str:
+    pass
