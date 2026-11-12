@@ -1,56 +1,34 @@
-import json
 import os
-from dataclasses import asdict, dataclass
-from pathlib import Path
-from typing import Any, Dict, Optional
+import json
+from typing import Any, Dict
 
-DEFAULT_CONFIG: Dict[str, Any] = {
+DEFAULT_CONFIG = {
     "network": "mainnet",
-    "rpc_url": "https://eth-mainnet.g.alchemy.com/v2/demo",
-    "request_timeout": 30,
-    "max_retries": 3,
-    "gas_limit_multiplier": 1.15,
-    "enable_cache": True,
-    "cache_ttl": 300,
+    "timeout": 30,
+    "retry_attempts": 3,
+    "cache_enabled": True
 }
 
+class ConfigLoader:
+    def __init__(self, config_path: str = "config.json"):
+        self.config_path = config_path
+        self.settings = DEFAULT_CONFIG.copy()
+        self._load_file()
 
-@dataclass
-class AppConfig:
-    network: str = DEFAULT_CONFIG["network"]
-    rpc_url: str = DEFAULT_CONFIG["rpc_url"]
-    request_timeout: int = DEFAULT_CONFIG["request_timeout"]
-    max_retries: int = DEFAULT_CONFIG["max_retries"]
-    gas_limit_multiplier: float = DEFAULT_CONFIG["gas_limit_multiplier"]
-    enable_cache: bool = DEFAULT_CONFIG["enable_cache"]
-    cache_ttl: int = DEFAULT_CONFIG["cache_ttl"]
+    def _load_file(self) -> None:
+        if os.path.exists(self.config_path):
+            try:
+                with open(self.config_path, "r") as f:
+                    user_config = json.load(f)
+                    self.settings.update(user_config)
+            except (json.JSONDecodeError, IOError):
+                pass
 
-    @classmethod
-    def load(cls, path: Optional[str] = None) -> "AppConfig":
-        merged = DEFAULT_CONFIG.copy()
+    def get(self, key: str, default: Any = None) -> Any:
+        return self.settings.get(key, default)
 
-        if path and Path(path).is_file():
-            with open(path, "r", encoding="utf-8") as f:
-                file_data = json.load(f)
-                merged.update(file_data)
+    def __getitem__(self, key: str) -> Any:
+        return self.settings[key]
 
-        env_rpc = os.getenv("WALLET_RPC_URL")
-        if env_rpc:
-            merged["rpc_url"] = env_rpc
-
-        env_network = os.getenv("WALLET_NETWORK")
-        if env_network:
-            merged["network"] = env_network
-
-        return cls(
-            network=str(merged["network"]),
-            rpc_url=str(merged["rpc_url"]),
-            request_timeout=int(merged["request_timeout"]),
-            max_retries=int(merged["max_retries"]),
-            gas_limit_multiplier=float(merged["gas_limit_multiplier"]),
-            enable_cache=bool(merged["enable_cache"]),
-            cache_ttl=int(merged["cache_ttl"]),
-        )
-
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+    def __repr__(self) -> str:
+        return f"Config(settings={self.settings})"
