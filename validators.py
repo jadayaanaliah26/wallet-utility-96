@@ -1,26 +1,18 @@
-import time
-import functools
-from typing import Callable, Any
+import re
 
-def retry_network_op(retries: int = 3, delay: float = 1.0):
-    def decorator(func: Callable):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            last_exception = None
-            for attempt in range(retries):
-                try:
-                    return func(*args, **kwargs)
-                except (ConnectionError, TimeoutError) as e:
-                    last_exception = e
-                    time.sleep(delay * (2 ** attempt))
-            raise last_exception
-        return wrapper
-    return decorator
+def validate_address(address: str) -> bool:
+    if not isinstance(address, str):
+        return False
+    return bool(re.fullmatch(r'0x[a-fA-F0-9]{40}', address))
 
-@retry_network_op(retries=3, delay=0.5)
-def fetch_balance(address: str) -> float:
-    pass
+def validate_amount(amount: float) -> bool:
+    try:
+        return isinstance(amount, (int, float)) and amount > 0
+    except (TypeError, ValueError):
+        return False
 
-@retry_network_op(retries=5, delay=1.0)
-def broadcast_transaction(tx_data: dict) -> str:
-    pass
+def validate_input(data: dict) -> bool:
+    required_fields = ['address', 'amount']
+    if not all(key in data for key in required_fields):
+        return False
+    return validate_address(data['address']) and validate_amount(data['amount'])
