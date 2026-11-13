@@ -1,34 +1,32 @@
-import os
 import json
+import os
 from typing import Any, Dict
 
-DEFAULT_CONFIG = {
-    "network": "mainnet",
-    "timeout": 30,
-    "retry_attempts": 3,
-    "cache_enabled": True
-}
-
 class ConfigLoader:
+    DEFAULT_CONFIG = {
+        "network": "mainnet",
+        "retry_attempts": 3,
+        "timeout": 30
+    }
+
     def __init__(self, config_path: str = "config.json"):
         self.config_path = config_path
-        self.settings = DEFAULT_CONFIG.copy()
-        self._load_file()
+        self._config = self._load_config()
 
-    def _load_file(self) -> None:
-        if os.path.exists(self.config_path):
-            try:
-                with open(self.config_path, "r") as f:
-                    user_config = json.load(f)
-                    self.settings.update(user_config)
-            except (json.JSONDecodeError, IOError):
-                pass
+    def _load_config(self) -> Dict[str, Any]:
+        if not os.path.exists(self.config_path):
+            return self.DEFAULT_CONFIG.copy()
+        
+        try:
+            with open(self.config_path, "r") as f:
+                user_config = json.load(f)
+                return {**self.DEFAULT_CONFIG, **user_config}
+        except (json.JSONDecodeError, IOError):
+            return self.DEFAULT_CONFIG.copy()
 
     def get(self, key: str, default: Any = None) -> Any:
-        return self.settings.get(key, default)
+        return self._config.get(key, default)
 
-    def __getitem__(self, key: str) -> Any:
-        return self.settings[key]
-
-    def __repr__(self) -> str:
-        return f"Config(settings={self.settings})"
+    @property
+    def all(self) -> Dict[str, Any]:
+        return self._config
