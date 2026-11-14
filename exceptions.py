@@ -1,30 +1,40 @@
 class WalletError(Exception):
-    """Base exception for wallet-utility-96"""
-
-
-class InsufficientFundsError(WalletError):
-    """Raised when transaction exceeds balance"""
-
-
-class NetworkConnectionError(WalletError):
-    """Raised when node connectivity fails"""
+    def __init__(self, message: str, details: dict | None = None):
+        super().__init__(message)
+        self.message = message
+        self.details = details or {}
 
 
 class InvalidAddressError(WalletError):
-    """Raised when address format is invalid"""
+    def __init__(self, address: str, chain: str = "mainnet"):
+        message = f"Invalid {chain} address format: {address}"
+        super().__init__(message, {"address": address, "chain": chain})
 
 
-class SigningError(WalletError):
-    """Raised when transaction signing fails"""
+class InsufficientFundsError(WalletError):
+    def __init__(self, required: float, available: float, asset: str = "ETH"):
+        message = f"Insufficient {asset}: required {required}, available {available}"
+        super().__init__(
+            message,
+            {"required": required, "available": available, "asset": asset},
+        )
 
 
-class ConfigurationError(WalletError):
-    """Raised when environment setup is incomplete"""
+class NonceConflictError(WalletError):
+    def __init__(self, expected: int, received: int):
+        message = f"Nonce mismatch: expected {expected}, got {received}"
+        super().__init__(message, {"expected": expected, "received": received})
 
 
-class RateLimitError(WalletError):
-    """Raised when API thresholds are exceeded"""
+class TransactionSimulationError(WalletError):
+    def __init__(self, reason: str, raw_tx: str | None = None):
+        message = f"Simulation failed: {reason}"
+        super().__init__(message, {"reason": reason, "raw_tx": raw_tx})
 
 
-class DecryptionError(WalletError):
-    """Raised when key retrieval fails"""
+class RPCProviderError(WalletError):
+    def __init__(self, endpoint: str, status_code: int | None = None):
+        message = f"RPC node failure at {endpoint} (status: {status_code})"
+        super().__init__(
+            message, {"endpoint": endpoint, "status_code": status_code}
+        )
