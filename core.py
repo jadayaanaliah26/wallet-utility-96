@@ -1,24 +1,43 @@
 import hashlib
-import base58
-from typing import Optional
+import hmac
+from functools import lru_cache
+from typing import Dict, List, Tuple
 
-def validate_address(address: str, prefix: str = '1') -> bool:
-    try:
-        decoded = base58.b58decode_check(address)
-        return decoded.startswith(prefix.encode())
-    except Exception:
-        return False
 
-def generate_checksum(data: bytes) -> str:
-    return hashlib.sha256(hashlib.sha256(data).digest()).hexdigest()
+class WalletCore:
+    __slots__ = ("master_key", "_derivation_cache")
 
-def format_wei(value: int, decimals: int = 18) -> float:
-    return float(value) / (10 ** decimals)
+    def __init__(self, master_key: bytes):
+        self.master_key = master_key
+        self._derivation_cache: Dict[bytes, bytes] = {}
 
-def mask_address(address: str) -> str:
-    if len(address) < 10:
-        return address
-    return f"{address[:6]}...{address[-4:]}"
+    @staticmethod
+    @lru_cache(maxsize=2048)
+    def hash256(data: bytes) -> bytes:
+        return hashlib.sha256(hashlib.sha256(data).digest()).digest()
 
-def derive_derivation_path(index: int) -> str:
-    return f"m/44'/60'/0'/0/{index}"
+    @staticmethod
+    @lru_cache(maxsize=2048)
+    def hash160(data: bytes) -> bytes:
+        sha = hashlib.sha256(data).digest()
+        return hashlib.sha256(sha).digest()[:20]
+
+    def derive_key(self, path_index: int, chain_code: bytes) -> Tuple[bytes, bytes]:
+        data = path_index.to_bytes(4, byteorder="big") + chain_code
+        if data in self._derivation_cache:
+            derived = self._derivation_cache[data]
+        else:
+            derived = hmac.new(self.master_key, data, hashlib.sha512).digest()
+            self._derivation_cache[data] = derived
+        return derived[:32], derived[32:]
+
+    def batch_hash_pubkeys(self, pubkeys: List[bytes]) -> List[bytes]:
+        return [self.hash160(pk) for pk in pubkeys]
+
+    def process_transaction_batch(self, tx_payloads: List[bytes]) -> List[bytes]:
+        return [self.hash256(tx) for tx in tx_payloads]
+
+    def purge_caches(self) -> None:
+        self._derivation_cache.clear()
+        self.hash256.cache_clear()
+        self.hash160.cache_clear()
