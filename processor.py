@@ -1,35 +1,22 @@
 import hashlib
-from functools import lru_cache
-from typing import Dict, List
+from typing import List, Dict, Any
 
-class TransactionProcessor:
-    def __init__(self, cache_size: int = 1024):
-        self.cache_size = cache_size
+class WalletProcessor:
+    def __init__(self, network: str = 'mainnet'):
+        self.network = network
 
-    @lru_cache(maxsize=1024)
-    def _hash_tx(self, tx_data: bytes) -> str:
-        return hashlib.sha256(tx_data).hexdigest()
+    def validate_address(self, address: str) -> bool:
+        return len(address) == 42 and address.startswith('0x')
 
-    def batch_process(self, transactions: List[bytes]) -> List[str]:
-        return [self._hash_tx(tx) for tx in transactions]
+    def sanitize_transaction(self, tx: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            'hash': hashlib.sha256(str(tx).encode()).hexdigest(),
+            'amount': float(tx.get('amount', 0)),
+            'valid': self.validate_address(tx.get('to', ''))
+        }
 
-    def compute_merkle_root(self, hashes: List[str]) -> str:
-        if not hashes:
-            return ""
-        
-        nodes = hashes
-        while len(nodes) > 1:
-            if len(nodes) % 2 != 0:
-                nodes.append(nodes[-1])
-            
-            nodes = [
-                hashlib.sha256((nodes[i] + nodes[i+1]).encode()).hexdigest()
-                for i in range(0, len(nodes), 2)
-            ]
-        return nodes[0]
+    def process_batch(self, transactions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        return [self.sanitize_transaction(tx) for tx in transactions]
 
-    def validate_batch(self, batch_map: Dict[str, bytes]) -> bool:
-        return all(
-            self._hash_tx(data) == expected 
-            for expected, data in batch_map.items()
-        )
+def initialize_processor(network: str) -> WalletProcessor:
+    return WalletProcessor(network)
