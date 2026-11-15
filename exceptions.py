@@ -1,40 +1,38 @@
 class WalletError(Exception):
-    def __init__(self, message: str, details: dict | None = None):
+    def __init__(self, message: str, code: int = 500):
         super().__init__(message)
         self.message = message
-        self.details = details or {}
+        self.code = code
 
 
 class InvalidAddressError(WalletError):
-    def __init__(self, address: str, chain: str = "mainnet"):
-        message = f"Invalid {chain} address format: {address}"
-        super().__init__(message, {"address": address, "chain": chain})
+    def __init__(self, address: str, network: str = "mainnet"):
+        super().__init__(f"Invalid {network} address format: '{address}'", code=400)
+        self.address = address
+        self.network = network
 
 
-class InsufficientFundsError(WalletError):
+class InsufficientBalanceError(WalletError):
     def __init__(self, required: float, available: float, asset: str = "ETH"):
-        message = f"Insufficient {asset}: required {required}, available {available}"
         super().__init__(
-            message,
-            {"required": required, "available": available, "asset": asset},
+            f"Insufficient {asset} balance: required {required}, available {available}",
+            code=402,
         )
+        self.required = required
+        self.available = available
+        self.asset = asset
 
 
-class NonceConflictError(WalletError):
-    def __init__(self, expected: int, received: int):
-        message = f"Nonce mismatch: expected {expected}, got {received}"
-        super().__init__(message, {"expected": expected, "received": received})
+class NodeConnectionError(WalletError):
+    def __init__(self, endpoint: str, details: str = ""):
+        msg = f"Failed to connect to node at {endpoint}"
+        if details:
+            msg += f": {details}"
+        super().__init__(msg, code=503)
+        self.endpoint = endpoint
 
 
-class TransactionSimulationError(WalletError):
-    def __init__(self, reason: str, raw_tx: str | None = None):
-        message = f"Simulation failed: {reason}"
-        super().__init__(message, {"reason": reason, "raw_tx": raw_tx})
-
-
-class RPCProviderError(WalletError):
-    def __init__(self, endpoint: str, status_code: int | None = None):
-        message = f"RPC node failure at {endpoint} (status: {status_code})"
-        super().__init__(
-            message, {"endpoint": endpoint, "status_code": status_code}
-        )
+class KeyDerivationError(WalletError):
+    def __init__(self, reason: str):
+        super().__init__(f"Key derivation failed: {reason}", code=422)
+        self.reason = reason
