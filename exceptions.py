@@ -1,38 +1,23 @@
 class WalletError(Exception):
-    def __init__(self, message: str, code: int = 500):
-        super().__init__(message)
-        self.message = message
-        self.code = code
+    pass
 
+class InsufficientFundsError(WalletError):
+    pass
 
-class InvalidAddressError(WalletError):
-    def __init__(self, address: str, network: str = "mainnet"):
-        super().__init__(f"Invalid {network} address format: '{address}'", code=400)
-        self.address = address
-        self.network = network
+class ConnectionTimeoutError(WalletError):
+    pass
 
+class ValidationError(WalletError):
+    pass
 
-class InsufficientBalanceError(WalletError):
-    def __init__(self, required: float, available: float, asset: str = "ETH"):
-        super().__init__(
-            f"Insufficient {asset} balance: required {required}, available {available}",
-            code=402,
-        )
-        self.required = required
-        self.available = available
-        self.asset = asset
+class TransactionExecutionError(WalletError):
+    pass
 
-
-class NodeConnectionError(WalletError):
-    def __init__(self, endpoint: str, details: str = ""):
-        msg = f"Failed to connect to node at {endpoint}"
-        if details:
-            msg += f": {details}"
-        super().__init__(msg, code=503)
-        self.endpoint = endpoint
-
-
-class KeyDerivationError(WalletError):
-    def __init__(self, reason: str):
-        super().__init__(f"Key derivation failed: {reason}", code=422)
-        self.reason = reason
+def handle_crypto_exception(e: Exception) -> str:
+    if isinstance(e, InsufficientFundsError):
+        return "insufficient balance for transaction"
+    if isinstance(e, ConnectionTimeoutError):
+        return "network connection request timed out"
+    if isinstance(e, ValidationError):
+        return "invalid address or parameters provided"
+    return "unhandled internal wallet error"
