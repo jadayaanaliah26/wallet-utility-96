@@ -1,18 +1,25 @@
-import re
+from typing import Optional
+
+class ValidationError(Exception):
+    pass
 
 def validate_address(address: str) -> bool:
     if not isinstance(address, str):
-        return False
-    return bool(re.fullmatch(r'0x[a-fA-F0-9]{40}', address))
+        raise ValidationError('address must be a string')
+    if len(address) < 26 or len(address) > 35:
+        raise ValidationError('invalid address length')
+    if not address.isalnum():
+        raise ValidationError('address contains invalid characters')
+    return True
 
 def validate_amount(amount: float) -> bool:
-    try:
-        return isinstance(amount, (int, float)) and amount > 0
-    except (TypeError, ValueError):
-        return False
+    if not isinstance(amount, (int, float)):
+        raise ValidationError('amount must be numeric')
+    if amount <= 0:
+        raise ValidationError('amount must be positive')
+    return True
 
-def validate_input(data: dict) -> bool:
-    required_fields = ['address', 'amount']
-    if not all(key in data for key in required_fields):
-        return False
-    return validate_address(data['address']) and validate_amount(data['amount'])
+def sanitize_input(value: Optional[str]) -> str:
+    if value is None:
+        return ''
+    return str(value).strip()
