@@ -1,52 +1,54 @@
-from typing import Any, Dict
+"""Constants and configuration defaults for crypto wallet utilities."""
 
-DEFAULT_TIMEOUT = 30
-MAX_RETRIES = 3
+from enum import Enum
+from typing import Dict, Final
 
-SUPPORTED_CHAINS: Dict[str, Dict[str, Any]] = {
-    "ethereum": {
-        "chain_id": 1,
-        "symbol": "ETH",
-        "decimals": 18,
-        "explorer": "https://etherscan.io",
-        "default_rpc": "https://eth.llamarpc.com",
-    },
-    "polygon": {
-        "chain_id": 137,
-        "symbol": "MATIC",
-        "decimals": 18,
-        "explorer": "https://polygonscan.com",
-        "default_rpc": "https://polygon-rpc.com",
-    },
-    "arbitrum": {
-        "chain_id": 42161,
-        "symbol": "ETH",
-        "decimals": 18,
-        "explorer": "https://arbiscan.io",
-        "default_rpc": "https://arb1.arbitrum.io/rpc",
-    },
-    "solana": {
-        "chain_id": None,
-        "symbol": "SOL",
-        "decimals": 9,
-        "explorer": "https://explorer.solana.com",
-        "default_rpc": "https://api.mainnet-beta.solana.com",
-    },
+
+class Network(str, Enum):
+    """Supported blockchain networks."""
+
+    ETHEREUM = "ethereum"
+    POLYGON = "polygon"
+    ARBITRUM = "arbitrum"
+    OPTIMISM = "optimism"
+    SOLANA = "solana"
+
+
+CHAIN_IDS: Final[Dict[Network, int]] = {
+    Network.ETHEREUM: 1,
+    Network.POLYGON: 137,
+    Network.ARBITRUM: 42161,
+    Network.OPTIMISM: 10,
 }
 
-ADDRESS_PATTERNS = {
+DEFAULT_GAS_LIMITS: Final[Dict[str, int]] = {
+    "transfer": 21000,
+    "erc20_transfer": 65000,
+    "uniswap_swap": 200000,
+}
+
+WEI_PER_ETH: Final[int] = 10**18
+GWEI_PER_ETH: Final[int] = 10**9
+SATOSHIS_PER_BTC: Final[int] = 10**8
+
+ADDRESS_PATTERNS: Final[Dict[str, str]] = {
     "evm": r"^0x[a-fA-F0-9]{40}$",
+    "btc_legacy": r"^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$",
+    "btc_bech32": r"^bc1[a-02-9ac-hj-np-z]{38,59}$",
     "solana": r"^[1-9A-HJ-NP-Za-km-z]{32,44}$",
-    "bitcoin_legacy": r"^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$",
-    "bitcoin_bech32": r"^bc1[a-02-9ac-hj-np-z]{38,59}$",
 }
 
-GWEI_UNIT = 10**9
-WEI_UNIT = 10**18
 
+def get_chain_id(network: Network) -> int:
+    """Return the EIP-155 chain ID for a given network.
 
-def get_chain_config(chain_name: str) -> Dict[str, Any]:
-    chain_key = chain_name.lower().strip()
-    if chain_key not in SUPPORTED_CHAINS:
-        raise ValueError(f"Unsupported chain: {chain_name}")
-    return SUPPORTED_CHAINS[chain_key]
+    Args:
+        network: The network identifier.
+
+    Returns:
+        The integer chain ID.
+
+    Raises:
+        KeyError: If the network is non-EVM or unsupported.
+    """
+    return CHAIN_IDS[network]
