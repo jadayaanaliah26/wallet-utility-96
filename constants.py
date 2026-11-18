@@ -1,54 +1,40 @@
-"""Constants and configuration defaults for crypto wallet utilities."""
-
 from enum import Enum
 from typing import Dict, Final
 
+DEFAULT_TIMEOUT: Final[int] = 30
+MAX_RETRIES: Final[int] = 3
 
-class Network(str, Enum):
-    """Supported blockchain networks."""
-
-    ETHEREUM = "ethereum"
-    POLYGON = "polygon"
-    ARBITRUM = "arbitrum"
-    OPTIMISM = "optimism"
-    SOLANA = "solana"
+SLIPPAGE_TOLERANCE: Final[float] = 0.005
+DEFAULT_GAS_LIMIT: Final[int] = 21000
+ERC20_GAS_LIMIT: Final[int] = 65000
 
 
-CHAIN_IDS: Final[Dict[Network, int]] = {
-    Network.ETHEREUM: 1,
-    Network.POLYGON: 137,
-    Network.ARBITRUM: 42161,
-    Network.OPTIMISM: 10,
+class ChainID(int, Enum):
+    ETHEREUM = 1
+    OPTIMISM = 10
+    BSC = 56
+    POLYGON = 137
+    ARBITRUM = 42161
+    AVALANCHE = 43114
+
+
+NATIVE_SYMBOLS: Final[Dict[ChainID, str]] = {
+    ChainID.ETHEREUM: "ETH",
+    ChainID.OPTIMISM: "ETH",
+    ChainID.BSC: "BNB",
+    ChainID.POLYGON: "MATIC",
+    ChainID.ARBITRUM: "ETH",
+    ChainID.AVALANCHE: "AVAX",
 }
 
-DEFAULT_GAS_LIMITS: Final[Dict[str, int]] = {
-    "transfer": 21000,
-    "erc20_transfer": 65000,
-    "uniswap_swap": 200000,
+DEFAULT_RPCS: Final[Dict[ChainID, str]] = {
+    ChainID.ETHEREUM: "https://eth.llamarpc.com",
+    ChainID.OPTIMISM: "https://mainnet.optimism.io",
+    ChainID.BSC: "https://bsc-dataseed.binance.org",
+    ChainID.POLYGON: "https://polygon-rpc.com",
+    ChainID.ARBITRUM: "https://arb1.arbitrum.io/rpc",
+    ChainID.AVALANCHE: "https://api.avax.network/ext/bc/C/rpc",
 }
 
-WEI_PER_ETH: Final[int] = 10**18
-GWEI_PER_ETH: Final[int] = 10**9
-SATOSHIS_PER_BTC: Final[int] = 10**8
-
-ADDRESS_PATTERNS: Final[Dict[str, str]] = {
-    "evm": r"^0x[a-fA-F0-9]{40}$",
-    "btc_legacy": r"^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$",
-    "btc_bech32": r"^bc1[a-02-9ac-hj-np-z]{38,59}$",
-    "solana": r"^[1-9A-HJ-NP-Za-km-z]{32,44}$",
-}
-
-
-def get_chain_id(network: Network) -> int:
-    """Return the EIP-155 chain ID for a given network.
-
-    Args:
-        network: The network identifier.
-
-    Returns:
-        The integer chain ID.
-
-    Raises:
-        KeyError: If the network is non-EVM or unsupported.
-    """
-    return CHAIN_IDS[network]
+ADDRESS_REGEX: Final[str] = r"^0x[a-fA-F0-9]{40}$"
+TX_HASH_REGEX: Final[str] = r"^0x[a-fA-F0-9]{64}$"
