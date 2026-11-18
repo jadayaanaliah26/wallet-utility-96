@@ -2,36 +2,33 @@ import re
 
 class WalletHandler:
     def __init__(self):
-        self.address_pattern = re.compile(r'^0x[a-fA-F0-9]{40}$')
+        self.address_pattern = re.compile(r'^(0x)?[0-9a-fA-F]{40}$')
 
-    def is_valid_address(self, address: str) -> bool:
-        return bool(self.address_pattern.match(address))
+    def validate_input(self, address: str, amount: float) -> bool:
+        if not self.address_pattern.match(address):
+            return False
+        if not isinstance(amount, (int, float)) or amount <= 0:
+            return False
+        return True
 
-    def process_transactions(self, queue: list):
-        processed = []
-        for entry in queue:
-            address = entry.get('address')
-            amount = entry.get('amount')
+    def process_queue(self, tasks: list):
+        for task in tasks:
+            address = task.get('address')
+            amount = task.get('amount', 0)
 
-            if not isinstance(address, str) or not self.is_valid_address(address):
+            if not self.validate_input(address, amount):
+                print(f'Invalid transaction data: {address}')
                 continue
 
-            if not isinstance(amount, (int, float)) or amount <= 0:
-                continue
+            self.execute_transfer(address, amount)
 
-            processed.append({
-                'address': address,
-                'amount': amount,
-                'status': 'verified'
-            })
-        return processed
+    def execute_transfer(self, address: str, amount: float):
+        print(f'Transferring {amount} to {address}')
 
 if __name__ == '__main__':
     handler = WalletHandler()
-    mock_data = [
-        {'address': '0x71C7656EC7ab88b098defB751B7401B5f6d8976F', 'amount': 1.5},
-        {'address': 'invalid_addr', 'amount': 0.5},
-        {'address': '0x71C7656EC7ab88b098defB751B7401B5f6d8976F', 'amount': -1}
+    data = [
+        {'address': '0x1234567890abcdef1234567890abcdef12345678', 'amount': 1.5},
+        {'address': 'invalid-address', 'amount': 0.1}
     ]
-    results = handler.process_transactions(mock_data)
-    print(results)
+    handler.process_queue(data)
