@@ -1,27 +1,19 @@
+import time
 import functools
-from typing import Callable, Any, Dict
+from typing import Callable, Any, Type, Tuple
 
-class CacheManager:
-    def __init__(self, max_size: int = 128):
-        self.max_size = max_size
-        self.cache: Dict[tuple, Any] = {}
-
-    def memoize(self, func: Callable) -> Callable:
+def retry(exceptions: Tuple[Type[Exception], ...], tries: int = 3, delay: float = 1.0, backoff: float = 2.0):
+    def decorator(func: Callable):
         @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            key = (func.__name__, args, frozenset(kwargs.items()))
-            if key not in self.cache:
-                if len(self.cache) >= self.max_size:
-                    self.cache.pop(next(iter(self.cache)))
-                self.cache[key] = func(*args, **kwargs)
-            return self.cache[key]
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            mtries, mdelay = tries, delay
+            while mtries > 1:
+                try:
+                    return func(*args, **kwargs)
+                except exceptions:
+                    time.sleep(mdelay)
+                    mtries -= 1
+                    mdelay *= backoff
+            return func(*args, **kwargs)
         return wrapper
-
-cache_manager = CacheManager()
-
-def batch_process(items: list, chunk_size: int = 100):
-    for i in range(0, len(items), chunk_size):
-        yield items[i:i + chunk_size]
-
-def compute_hash_sum(data: bytes) -> int:
-    return hash(data) & 0xffffffffffffffff
+    return decorator
