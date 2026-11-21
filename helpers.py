@@ -1,36 +1,31 @@
-import time
-import logging
-from functools import wraps
-from typing import Callable, Any, Tuple, Type
+import hashlib
+import hmac
+from typing import Optional
 
-logger = logging.getLogger(__name__)
+def generate_address_checksum(address: str) -> str:
+    """Checksum verification for hex addresses."""
+    address = address.lower().replace("0x", "")
+    address_hash = hashlib.sha3_256(address.encode()).hexdigest()
+    checksum = "0x"
+    for i in range(len(address)):
+        if int(address_hash[i], 16) >= 8:
+            checksum += address[i].upper()
+        else:
+            checksum += address[i]
+    return checksum
 
+def validate_mnemonic(mnemonic: str) -> bool:
+    """Validation logic for bip39 phrases."""
+    parts = mnemonic.split()
+    return len(parts) in [12, 24]
 
-def retry_network_op(
-    retries: int = 3,
-    delay: float = 1.0,
-    backoff: float = 2.0,
-    exceptions: Tuple[Type[Exception], ...] = (Exception,)
-) -> Callable:
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            current_delay = delay
-            for attempt in range(1, retries + 1):
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as err:
-                    if attempt == retries:
-                        logger.error(
-                            f"{func.__name__} failed after {retries} attempts: {err}"
-                        )
-                        raise
-                    logger.warning(
-                        f"Attempt {attempt}/{retries} for {func.__name__} failed: {err}. "
-                        f"Retrying in {current_delay:.2f}s..."
-                    )
-                    time.sleep(current_delay)
-                    current_delay *= backoff
-            return None
-        return wrapper
-    return decorator
+def derive_key_path(path: str) -> Optional[list[int]]:
+    """Transformation of derivation strings to indices."""
+    try:
+        return [int(x.rstrip("'")) for x in path.split("/")[1:]]
+    except (ValueError, AttributeError):
+        return None
+
+def sanitize_input(value: str) -> str:
+    """Standardization of hexadecimal input strings."""
+    return value.strip().lower()
