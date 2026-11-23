@@ -5,7 +5,7 @@ from pathlib import Path
 LOG_DIR = Path("logs")
 LOG_FILE = LOG_DIR / "wallet.log"
 
-def setup_logger(name: str = "wallet_utility") -> logging.Logger:
+def setup_logger(name: str = "wallet-utility") -> logging.Logger:
     LOG_DIR.mkdir(exist_ok=True)
     
     logger = logging.getLogger(name)
@@ -25,7 +25,8 @@ def setup_logger(name: str = "wallet_utility") -> logging.Logger:
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
     
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
+    if not logger.handlers:
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
     
     return logger
