@@ -1,36 +1,51 @@
 import os
-from typing import Any, Dict
+import json
+from dataclasses import dataclass
+from typing import Dict, Any, Optional
+from pathlib import Path
 
-class Config:
-    DEFAULTS = {
-        "NETWORK": "mainnet",
-        "RPC_URL": "https://api.mainnet.node",
-        "TIMEOUT": 30,
-        "DEBUG": False
-    }
+DEFAULT_CONFIG: Dict[str, Any] = {
+    "network": "mainnet",
+    "rpc_url": "https://eth-mainnet.g.alchemy.com/v2/demo",
+    "timeout_seconds": 30,
+    "max_retries": 3,
+    "gas_limit_multiplier": 1.1,
+    "enable_cache": True,
+}
 
-    def __init__(self, env_prefix: str = "WALLET_"):
-        self.env_prefix = env_prefix
-        self._config = self.DEFAULTS.copy()
-        self._load_from_env()
 
-    def _load_from_env(self) -> None:
-        for key in self.DEFAULTS:
-            env_key = f"{self.env_prefix}{key}"
-            value = os.getenv(env_key)
-            if value is not None:
-                self._config[key] = self._coerce_type(key, value)
+@dataclass
+class WalletConfig:
+    network: str = DEFAULT_CONFIG["network"]
+    rpc_url: str = DEFAULT_CONFIG["rpc_url"]
+    timeout_seconds: int = DEFAULT_CONFIG["timeout_seconds"]
+    max_retries: int = DEFAULT_CONFIG["max_retries"]
+    gas_limit_multiplier: float = DEFAULT_CONFIG["gas_limit_multiplier"]
+    enable_cache: bool = DEFAULT_CONFIG["enable_cache"]
 
-    def _coerce_type(self, key: str, value: str) -> Any:
-        default_val = self.DEFAULTS[key]
-        if isinstance(default_val, bool):
-            return value.lower() in ("true", "1", "yes")
-        if isinstance(default_val, int):
-            return int(value)
-        return value
+    @classmethod
+    def load(cls, config_path: Optional[str] = None) -> "WalletConfig":
+        merged = DEFAULT_CONFIG.copy()
 
-    def get(self, key: str) -> Any:
-        return self._config.get(key)
+        if config_path and Path(config_path).is_file():
+            with open(config_path, "r", encoding="utf-8") as f:
+                file_data = json.load(f)
+                merged.update({k: v for k, v in file_data.items() if k in merged})
 
-def get_config() -> Config:
-    return Config()
+        env_mappings = {
+            "WALLET_NETWORK": ("network", str),
+            "WALLET_RPC_URL": ("rpc_url", str),
+            "WALLET_TIMEOUT": ("timeout_seconds", int),
+            "WALLET_MAX_RETRIES": ("max_retries", int),
+            "WALLET_GAS_MULTIPLIER": ("gas_limit_multiplier", float),
+            "WALLET_ENABLE_CACHE": ("enable_cache", lambda v: v.lower() == "true"),
+        }
+
+        for env_key, (config_key, caster) in env_mappings.items():
+            if env_val := os.getenv(env_key):
+                try:
+                    merged[config_key] = caster(env_val)
+                except ValueError:
+                    pass
+
+        return cls(**merged)
