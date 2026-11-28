@@ -1,28 +1,23 @@
-import re
-from typing import Union
+import time
+import functools
+import logging
+from typing import Callable, Any
 
-def is_valid_address(address: str, chain_type: str = 'evm') -> bool:
-    if not isinstance(address, str):
-        return False
-    if chain_type == 'evm':
-        return bool(re.match(r'^0x[a-fA-F0-9]{40}$', address))
-    if chain_type == 'btc':
-        return bool(re.match(r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$', address))
-    return False
+logger = logging.getLogger(__name__)
 
-def validate_amount(amount: Union[int, float, str]) -> bool:
-    try:
-        val = float(amount)
-        return val >= 0
-    except (ValueError, TypeError):
-        return False
-
-def is_valid_tx_hash(tx_hash: str) -> bool:
-    if not isinstance(tx_hash, str):
-        return False
-    return bool(re.match(r'^0x[a-fA-F0-9]{64}$', tx_hash))
-
-def sanitize_currency(symbol: str) -> str:
-    if not isinstance(symbol, str):
-        return ''
-    return re.sub(r'[^A-Z0-9]', '', symbol.upper())
+def retry(exceptions: tuple, tries: int = 3, delay: float = 1.0, backoff: float = 2.0) -> Callable:
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            mtries, mdelay = tries, delay
+            while mtries > 1:
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    logger.warning(f"{func.__name__} failed: {e}. Retrying in {mdelay}s...")
+                    time.sleep(mdelay)
+                    mtries -= 1
+                    mdelay *= backoff
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
