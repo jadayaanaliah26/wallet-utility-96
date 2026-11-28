@@ -1,47 +1,48 @@
 # wallet-utility-96
 
-A high-performance Python toolkit designed for secure cryptocurrency wallet management and transaction processing. It provides a streamlined interface for interacting with blockchain assets, focusing on developer efficiency and security.
+`wallet-utility-96` is a lightweight, high-performance Python toolkit designed for secure wallet management and batch transaction processing. It enables developers to streamline crypto operations with robust encryption standards and seamless blockchain interaction.
 
-### Features
+## Features
 
-*   **Multi-Chain Support:** Native integration for automated address generation and balance tracking across EVM-compatible chains.
-*   **Secure Key Handling:** Implements industry-standard encryption for local keystore management and private key derivation.
-*   **Transaction Batching:** Optimized utilities for bundling multiple operations to reduce gas overhead and execution time.
-*   **Web3 Integration:** Built-in connection layer for seamless interaction with RPC nodes and decentralized protocols.
+*   **Hierarchical Deterministic (HD) Support:** Generate and manage BIP-39 mnemonic phrases with support for custom derivation paths.
+*   **Batch Transaction Signing:** Execute concurrent signing of multiple unsigned transactions to optimize gas fees and network throughput.
+*   **Encrypted Storage:** Utilize AES-256-GCM encryption to protect private keys at rest, ensuring sensitive data remains secure.
+*   **Multi-Chain Compatibility:** Native integration for EVM-based networks with adjustable RPC endpoint configurations.
 
-### Installation
+## Installation
 
-Ensure you have Python 3.10+ installed. Clone the repository and set up a virtual environment:
+Ensure you have Python 3.9+ installed. It is recommended to use a virtual environment.
 
 ```bash
+# Clone the repository
 git clone https://github.com/Developer/wallet-utility-96.git
 cd wallet-utility-96
-python -m venv venv
-source venv/bin/activate
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-### Usage
+## Basic Usage
 
-Initialize the utility to generate a new wallet and check the balance of a specific address:
+The following example demonstrates how to initialize a new wallet and export the encrypted key file.
 
 ```python
 from wallet_utility import WalletManager
 
-# Initialize manager
-manager = WalletManager(network="mainnet")
+# Initialize manager with a secure password
+wm = WalletManager(password="secure-master-key")
 
-# Create a new encrypted wallet
-wallet = manager.create_wallet(password="your-secure-password")
-print(f"Address: {wallet.address}")
+# Generate a new HD wallet
+wallet = wm.create_wallet()
 
-# Retrieve balance
-balance = manager.get_balance(wallet.address)
-print(f"Current Balance: {balance} ETH")
+# Export encrypted store
+wm.save_to_disk("wallet_data.json")
+
+print(f"Address generated: {wallet.address}")
 ```
 
-### License
+## License
 
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Distributed under the MIT License. See `LICENSE` for more information.
