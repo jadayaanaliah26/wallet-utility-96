@@ -1,27 +1,49 @@
-import hashlib
-import hmac
-import json
-from typing import Any, Dict
+import re
+from typing import Dict, Union
 
-def sign_payload(payload: Dict[str, Any], secret: str) -> str:
-    message = json.dumps(payload, sort_keys=True).encode()
-    return hmac.new(secret.encode(), message, hashlib.sha256).hexdigest()
 
-def format_amount(amount: float, decimals: int = 8) -> str:
-    return f"{amount:.{decimals}f}".rstrip('0').rstrip('.')
+class WalletError(Exception):
+    pass
 
-def validate_address(address: str, prefix: str = '0x') -> bool:
-    if not address.startswith(prefix):
-        return False
-    return len(address) == 42 and all(c in '0123456789abcdefABCDEF' for c in address[2:])
 
-def parse_hex(hex_str: str) -> int:
-    return int(hex_str, 16)
+class InvalidAddressError(WalletError):
+    pass
 
-def sanitize_currency(symbol: str) -> str:
-    return symbol.strip().upper()
 
-if __name__ == "__main__":
-    data = {"amount": 1.23456789, "currency": "btc"}
-    print(format_amount(data["amount"]))
-    print(validate_address("0x71C7656EC7ab88b098defB751B7401B5f6d8976F"))
+class InvalidAmountError(WalletError):
+    pass
+
+
+def parse_transaction_input(address: str, amount: Union[int, float, str]) -> Dict[str, Union[str, float]]:
+    if not isinstance(address, str):
+        raise InvalidAddressError("Wallet address must be a string")
+
+    address = address.strip()
+    if not address:
+        raise InvalidAddressError("Wallet address cannot be empty")
+
+    if address.startswith("0x"):
+        if not re.fullmatch(r"0x[a-fA-F0-9]{40}", address):
+            raise InvalidAddressError("Malformed Ethereum address format")
+    elif address.startswith(("1", "3", "bc1")):
+        if not (26 <= len(address) <= 62) or not re.fullmatch(r"[a-zA-Z0-9]+", address):
+            raise InvalidAddressError("Malformed Bitcoin address format")
+    else:
+        raise InvalidAddressError("Unsupported cryptocurrency address format")
+
+    try:
+        numeric_amount = float(amount)
+    except (ValueError, TypeError):
+        raise InvalidAmountError(f"Invalid numeric amount value: {amount}")
+
+    if numeric_amount <= 0:
+        raise InvalidAmountError("Transaction amount must be strictly positive")
+
+    if numeric_amount > 1e9:
+        raise InvalidAmountError("Transaction amount exceeds maximum limit")
+
+    return {
+        "address": address,
+        "amount": round(numeric_amount, 8),
+        "network": "ethereum" if address.startswith("0x") else "bitcoin",
+    }
